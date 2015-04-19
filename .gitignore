@@ -1,6 +1,9 @@
 # 'vim' swap files.
 .*.sw*
 
+# Object files.
+*.o
+
 # Binary output
 glsd
 gls

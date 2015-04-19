@@ -1,8 +1,5 @@
 /**
- *  Implementation of Dunbar's "Glass Plate Game" game, which is based off of
- *  Herman Hesse's novel, "The Glass Bead Game".
- *
- *  This is the server's portion of the code.
+ *  Holds state for what would traditionally be the visible portion of the game.
  *
  *  Copyright (C) 2015  "Frostsnow" (Wade T. Cline).
  *
@@ -19,14 +16,28 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef board_H
+#define board_H
 
 #include <stdio.h>
+#include <string.h>
 
-#include "board.h"
+#include "plate.h"
 
-int main(int argc, char* argv[]) {
-	struct board board;
+#define BOARD_PLATE_ROW_COUNT 8
+#define BOARD_PLATE_COLUMN_COUNT 8
 
-	// Create a new game.
-	board_init(&board);
-}
+/**
+ * Holds information about the actual game.
+ */
+struct board {
+	// Plates are arrange in a static 8x8 square for now.
+	struct plate plates[BOARD_PLATE_ROW_COUNT][BOARD_PLATE_COLUMN_COUNT];
+};
+
+/**
+ * Initialize the game board.
+ */
+void board_init(struct board* board);
+
+#endif // board_H

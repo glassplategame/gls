@@ -16,4 +16,6 @@ CC=gcc
 CFLAGS=-Wall -Werror
 
 default:
-	gcc -o glsd server.c
+	gcc -c board.c
+	gcc -c server.c
+	gcc -o glsd board.o server.o
