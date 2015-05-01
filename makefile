@@ -15,7 +15,23 @@
 CC=gcc
 CFLAGS=-Wall -Werror
 
-default:
+# Compile the client.
+client:
+	gcc -c board.c
+	gcc -c client.c
+	gcc -o gls board.o client.o
+
+# Remove all generated output.
+clean:
+	rm -f gls
+	rm -f glsd
+
+# Remove extraneous output.
+tidy:
+	rm *.o
+
+# Compile the server.
+server:
 	gcc -c board.c
 	gcc -c server.c
 	gcc -o glsd board.o server.o
