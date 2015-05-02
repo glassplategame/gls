@@ -24,13 +24,21 @@
 #include <netinet/ip.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "board.h"
+#include "global.h"
 
 int main(int argc, char* argv[]) {
+	struct board board;
 	struct sockaddr_in sockaddr_in;
 	int sockfd;
 	socklen_t socklen;
+
+	// Set up the logger.
+	// FIXME: Don't bypass the proper init method.
+	g_log.fd = STDOUT_FILENO;
+	g_log.level = LOG_DEBUG;
 
 	// Set up socket.
 	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -47,4 +55,21 @@ int main(int argc, char* argv[]) {
 		sizeof(sockaddr_in)) == -1) {
 		perror("Connecting to server");
 	}
+
+	// Read in the game board.
+	if (board_read(&board, sockfd) == -1) {
+		log_error(&g_log, "Getting board from server.");
+	}
+
+	if (board_write(&board, STDOUT_FILENO) == -1) {
+		log_error(&g_log, "Printing board.");
+	}
+
+	// Close connection to the server.
+	if (close(sockfd) == -1) {
+		log_error(&g_log, "Closing connection to server.");
+	}
+
+	// Close the logger.
+	log_free(&g_log);
 }

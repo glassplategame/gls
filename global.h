@@ -1,5 +1,5 @@
 /**
- *  Holds state for what would traditionally be the visible portion of the game.
+ *  Contains global variables.
  *
  *  Copyright (C) 2015  "Frostsnow" (Wade T. Cline).
  *
@@ -16,39 +16,13 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef board_H
-#define board_H
 
-#include <stdio.h>
-#include <string.h>
+#ifndef global_H
+#define global_H
 
-#include "global.h"
-#include "plate.h"
+#include "log.h"
 
-#define BOARD_PLATE_ROW_COUNT 8
-#define BOARD_PLATE_COLUMN_COUNT 8
+// Global logger.
+struct log g_log;
 
-/**
- * Holds information about the actual game.
- */
-struct board {
-	// Plates are arrange in a static 8x8 square for now.
-	struct plate plates[BOARD_PLATE_ROW_COUNT][BOARD_PLATE_COLUMN_COUNT];
-};
-
-/**
- * Initialize the game board.
- */
-void board_init(struct board* board);
-
-/**
- * Read the board from the specified file.
- */
-int board_read(struct board* board, int fd);
-
-/**
- * Write the board to the specified file.
- */
-int board_write(struct board* board, int fd);
-
-#endif // board_H
+#endif // global_H

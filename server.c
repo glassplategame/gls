@@ -39,16 +39,15 @@ char buffer[256];
  */
 int main(int argc, char* argv[]) {
 	struct board board;
-	struct log log;
 	int running;
 	struct sockaddr_in sockaddr_in;
 	int sockfd;
 
 	// Open log file.
-	if (log_init(&log, "./glsd.log", LOG_DEBUG) == -1) {
+	if (log_init(&g_log, "./glsd.log", LOG_DEBUG) == -1) {
 		// Have the logger write to 'stdout'.
 		// Hacky, but reasonable, me thinks.
-		log.fd = STDOUT_FILENO;
+		g_log.fd = STDOUT_FILENO;
 	}
 
 	// Create a new game.
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
 	if (sockfd == -1) {
 		snprintf(buffer, sizeof(buffer),
 			"Unable to create socket: %s", strerror(errno));
-		log_error(&log, buffer);
+		log_error(&g_log, buffer);
 		exit(EXIT_FAILURE);
 	}
 	memset(&sockaddr_in, 0, sizeof(sockaddr_in));
@@ -69,13 +68,13 @@ int main(int argc, char* argv[]) {
 	if (bind(sockfd, (struct sockaddr*)&sockaddr_in, sizeof(sockaddr_in)) == -1) {
 		snprintf(buffer, sizeof(buffer),
 			"Socket binding failed: %s", strerror(errno));
-		log_error(&log, buffer);
+		log_error(&g_log, buffer);
 		exit(EXIT_FAILURE);
 	}
 	if (listen(sockfd, 16) == -1) {
 		snprintf(buffer, sizeof(buffer),
 			"Socket listening failed: %s", strerror(errno));
-		log_error(&log, buffer);
+		log_error(&g_log, buffer);
 		exit(EXIT_FAILURE);
 	}
 
@@ -86,21 +85,31 @@ int main(int argc, char* argv[]) {
 		int connection;
 
 		// Accept new connection.
-		log_debug(&log, "Connecting");
+		log_debug(&g_log, "Connecting");
 		connection = accept(sockfd, (struct sockaddr*)&sockaddr_in,
 			&socklen);
 		if (connection == -1) {
 			snprintf(buffer, sizeof(buffer),
 				"Accepting connection failed: %s",
 				strerror(errno));
-			log_warn(&log, buffer);
-		} else {
-			log_info(&log, "Connected");
+			log_warn(&g_log, buffer);
+			continue;
+		}
+		log_info(&g_log, "Connected");
+
+		// Send connected player the current game.
+		if (board_write(&board, connection) == -1) {
+			log_error(&g_log, "Sending board");
+		}
+
+		// Disconnect the player.
+		if (close(connection) == -1) {
+			log_error(&g_log, "Closing connection");
 		}
 	}
 
 	// Stop logging.
-	log_free(&log);
+	log_free(&g_log);
 
 	// Exit the program.
 	exit(EXIT_SUCCESS);

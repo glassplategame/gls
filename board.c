@@ -23,6 +23,7 @@ void board_init(struct board* board) {
 	int j;
 
 	// Use a default set of cards. Hacky.
+	memset(board, 0, sizeof(struct board));
 	strncpy(board->plates[0][0].name, "Ambivalnce", PLATE_NAME_LENGTH);
 	strncpy(board->plates[0][0].abbrev, "Amb", PLATE_ABBREV_LENGTH);
 	strncpy(board->plates[0][1].name, "Art Versus Nature", PLATE_NAME_LENGTH);
@@ -99,4 +100,38 @@ void board_init(struct board* board) {
 	strncpy(board->plates[4][4].abbrev, "StI", PLATE_ABBREV_LENGTH);
 	strncpy(board->plates[4][5].name, "Anthropomorphism", PLATE_NAME_LENGTH);
 	strncpy(board->plates[4][5].abbrev, "Anp", PLATE_ABBREV_LENGTH);
+}
+
+int board_read(struct board* board, int fd) {
+	int i;
+	int j;
+
+	// Read each plate.
+	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
+		for (j = 0; j < BOARD_PLATE_ROW_COUNT; j++) {
+			if (plate_read(&board->plates[i][j], fd) == -1) {
+				return -1;
+			}
+		}
+	}
+
+	// Return success.
+	return 0;
+}
+
+int board_write(struct board* board, int fd) {
+	int i;
+	int j;
+
+	// Write each plate.
+	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
+		for (j = 0; j < BOARD_PLATE_ROW_COUNT; j++) {
+			if (plate_write(&board->plates[i][j], fd) == -1) {
+				return -1;
+			}
+		}
+	}
+
+	// Return success;
+	return 0;
 }

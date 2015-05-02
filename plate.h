@@ -1,5 +1,6 @@
 /**
- *  Holds state for what would traditionally be the visible portion of the game.
+ *  Usually implemented in meat-space as a small, thick, rectangular piece of
+ *  paper.
  *
  *  Copyright (C) 2015  "Frostsnow" (Wade T. Cline).
  *
@@ -19,6 +20,10 @@
 #ifndef plate_H
 #define plate_H
 
+#include <stdlib.h>
+
+#include "global.h"
+
 #define PLATE_ABBREV_LENGTH 4
 #define PLATE_NAME_LENGTH 64
 
@@ -31,5 +36,15 @@ struct plate {
 	// Description of the plate's concept.
 	char description[256];
 };
+
+/**
+ * Read the plate from the specified file.
+ */
+int plate_read(struct plate* plate, int fd);
+
+/**
+ * Write the plate to the specified file.
+ */
+int plate_write(struct plate* plate, int fd);
 
 #endif // plate_H
