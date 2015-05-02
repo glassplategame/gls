@@ -33,5 +33,6 @@ tidy:
 # Compile the server.
 server:
 	gcc -c board.c
+	gcc -c log.c
 	gcc -c server.c
-	gcc -o glsd board.o server.o
+	gcc -o glsd board.o log.o server.o

@@ -23,16 +23,33 @@
 #include <errno.h>
 #include <netinet/ip.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "board.h"
+#include "log.h"
 
+// Global buffer for holding messages.
+char buffer[256];
+
+/**
+ * Runs the Glass Plate Game server.
+ */
 int main(int argc, char* argv[]) {
 	struct board board;
+	struct log log;
 	int running;
 	struct sockaddr_in sockaddr_in;
 	int sockfd;
+
+	// Open log file.
+	if (log_init(&log, "./glsd.log", LOG_DEBUG) == -1) {
+		// Have the logger write to 'stdout'.
+		// Hacky, but reasonable, me thinks.
+		log.fd = STDOUT_FILENO;
+	}
 
 	// Create a new game.
 	board_init(&board);
@@ -40,32 +57,51 @@ int main(int argc, char* argv[]) {
 	// Set up socket.
 	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sockfd == -1) {
-		perror("Unable to create socket");
+		snprintf(buffer, sizeof(buffer),
+			"Unable to create socket: %s", strerror(errno));
+		log_error(&log, buffer);
+		exit(EXIT_FAILURE);
 	}
 	memset(&sockaddr_in, 0, sizeof(sockaddr_in));
 	sockaddr_in.sin_family = AF_INET;
 	sockaddr_in.sin_port = htons(13500);
 	sockaddr_in.sin_addr.s_addr = INADDR_ANY;
 	if (bind(sockfd, (struct sockaddr*)&sockaddr_in, sizeof(sockaddr_in)) == -1) {
-		perror("Socket binding failed");
+		snprintf(buffer, sizeof(buffer),
+			"Socket binding failed: %s", strerror(errno));
+		log_error(&log, buffer);
+		exit(EXIT_FAILURE);
 	}
 	if (listen(sockfd, 16) == -1) {
-		perror("Socket listening failed");
+		snprintf(buffer, sizeof(buffer),
+			"Socket listening failed: %s", strerror(errno));
+		log_error(&log, buffer);
+		exit(EXIT_FAILURE);
 	}
 
 	// Run the server.
 	running = 1;
 	while (running) {
-		socklen_t socklen; // Really, POSIX?
+		socklen_t socklen;
 		int connection;
 
 		// Accept new connection.
-		fprintf(stderr, "Connecting\n");
+		log_debug(&log, "Connecting");
 		connection = accept(sockfd, (struct sockaddr*)&sockaddr_in,
 			&socklen);
 		if (connection == -1) {
-			perror("Accepting connection failed");
+			snprintf(buffer, sizeof(buffer),
+				"Accepting connection failed: %s",
+				strerror(errno));
+			log_warn(&log, buffer);
+		} else {
+			log_info(&log, "Connected");
 		}
-		fprintf(stderr, "Connected\n");
 	}
+
+	// Stop logging.
+	log_free(&log);
+
+	// Exit the program.
+	exit(EXIT_SUCCESS);
 }

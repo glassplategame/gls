@@ -7,3 +7,6 @@
 # Binary output
 glsd
 gls
+
+# Logs.
+*.log
