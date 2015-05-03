@@ -56,7 +56,7 @@ int log_init(struct log* log, char* path, enum log_level level) {
 	int fd;
 
 	// Open log file.
-	if ((fd = open(path, O_CREAT | O_WRONLY, 0600)) == -1) {
+	if ((fd = open(path, O_APPEND | O_CREAT | O_WRONLY, 0600)) == -1) {
 		snprintf(log->buffer, sizeof(log->buffer),
 			"Unable to open log file at '%s'", path);
 		perror(log->buffer);
