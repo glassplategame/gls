@@ -47,6 +47,11 @@ int plate_read(struct plate* plate, int fd) {
 	memcpy((void*)plate->description, (void*)offset,
 		sizeof(plate->description));
 
+	// Safely terminate strings.
+	plate->name[PLATE_NAME_LENGTH - 1] = '\0';
+	plate->abbrev[PLATE_ABBREV_LENGTH - 1] = '\0';
+	plate->description[PLATE_DESCRIPTION_LENGTH - 1] = '\0';
+
 	// Free the buffer from memory.
 	free(buffer);
 
