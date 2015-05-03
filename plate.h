@@ -25,7 +25,11 @@
 #include "global.h"
 
 #define PLATE_ABBREV_LENGTH 4
+#define PLATE_DESCRIPTION_LENGTH 256
 #define PLATE_NAME_LENGTH 64
+
+#define PLATE_SIZE_PACKED (PLATE_ABBREV_LENGTH + PLATE_DESCRIPTION_LENGTH + \
+	PLATE_NAME_LENGTH)
 
 struct plate {
 	// The plate's concept.
@@ -34,7 +38,7 @@ struct plate {
 	// not meant to be unique.
 	char abbrev[PLATE_ABBREV_LENGTH];
 	// Description of the plate's concept.
-	char description[256];
+	char description[PLATE_DESCRIPTION_LENGTH];
 };
 
 /**

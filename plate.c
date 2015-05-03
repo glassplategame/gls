@@ -25,14 +25,14 @@ int plate_read(struct plate* plate, int fd) {
 	char* offset;
 
 	// Create a buffer in memory.
-	buffer = (char*)malloc(sizeof(struct plate));
+	buffer = (char*)malloc(PLATE_SIZE_PACKED);
 	if (!buffer) {
 		log_error(&g_log, "Allocating plate buffer");
 		return -1;
 	}
 
 	// Write the buffer to the file.
-	if (read(fd, buffer, sizeof(struct plate)) < sizeof(struct plate)) {
+	if (read(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
 		log_error(&g_log, "Reading plate buffer");
 		free(buffer);
 		return -1;
@@ -59,7 +59,7 @@ int plate_write(struct plate* plate, int fd) {
 	char* offset;
 
 	// Create a buffer in memory.
-	buffer = (char*)malloc(sizeof(struct plate));
+	buffer = (char*)malloc(PLATE_SIZE_PACKED);
 	if (!buffer) {
 		log_error(&g_log, "Allocating plate buffer");
 		return -1;
@@ -75,7 +75,7 @@ int plate_write(struct plate* plate, int fd) {
 		sizeof(plate->description));
 
 	// Write the buffer to the file.
-	if (write(fd, buffer, sizeof(struct plate)) < sizeof(struct plate)) {
+	if (write(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
 		log_error(&g_log, "Writing plate buffer");
 		free(buffer);
 		return -1;
