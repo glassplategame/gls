@@ -32,9 +32,6 @@
 #include "board.h"
 #include "log.h"
 
-// Global buffer for holding messages.
-char buffer[256];
-
 /**
  * Runs the Glass Plate Game server.
  */
@@ -57,9 +54,7 @@ int main(int argc, char* argv[]) {
 	// refactored in order to use a signal handler function, change to
 	// the 'sigaction' system call.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-		snprintf(buffer, sizeof(buffer), "Unable to ignore SIGPIPE: %s",
-			strerror(errno));
-		log_error(&g_log, buffer);
+		log_error(&g_log, g_serror("Unable to ignore SIGPIPE"));
 		exit(EXIT_FAILURE);
 	}
 
@@ -69,9 +64,7 @@ int main(int argc, char* argv[]) {
 	// Set up socket.
 	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sockfd == -1) {
-		snprintf(buffer, sizeof(buffer),
-			"Unable to create socket: %s", strerror(errno));
-		log_error(&g_log, buffer);
+		log_error(&g_log, g_serror("Unable to create socket"));
 		exit(EXIT_FAILURE);
 	}
 	memset(&sockaddr_in, 0, sizeof(sockaddr_in));
@@ -79,15 +72,11 @@ int main(int argc, char* argv[]) {
 	sockaddr_in.sin_port = htons(13500);
 	sockaddr_in.sin_addr.s_addr = INADDR_ANY;
 	if (bind(sockfd, (struct sockaddr*)&sockaddr_in, sizeof(sockaddr_in)) == -1) {
-		snprintf(buffer, sizeof(buffer),
-			"Socket binding failed: %s", strerror(errno));
-		log_error(&g_log, buffer);
+		log_error(&g_log, g_serror("Socket binding failed"));
 		exit(EXIT_FAILURE);
 	}
 	if (listen(sockfd, 16) == -1) {
-		snprintf(buffer, sizeof(buffer),
-			"Socket listening failed: %s", strerror(errno));
-		log_error(&g_log, buffer);
+		log_error(&g_log, g_serror("Socket listening failed"));
 		exit(EXIT_FAILURE);
 	}
 
@@ -102,10 +91,8 @@ int main(int argc, char* argv[]) {
 		connection = accept(sockfd, (struct sockaddr*)&sockaddr_in,
 			&socklen);
 		if (connection == -1) {
-			snprintf(buffer, sizeof(buffer),
-				"Accepting connection failed: %s",
-				strerror(errno));
-			log_warn(&g_log, buffer);
+			log_warn(&g_log,
+				g_serror("Accepting connection failed"));
 			continue;
 		}
 		log_info(&g_log, "Connected");
@@ -117,7 +104,8 @@ int main(int argc, char* argv[]) {
 
 		// Disconnect the player.
 		if (close(connection) == -1) {
-			log_error(&g_log, "Closing connection");
+			log_error(&g_log,
+				g_serror("Closing connection"));
 		}
 	}
 

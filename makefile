@@ -18,10 +18,11 @@ CFLAGS=-Wall -Werror
 # Compile the client.
 client:
 	gcc -c board.c
+	gcc -c global.c
 	gcc -c log.c
 	gcc -c client.c
 	gcc -c plate.c
-	gcc -o gls board.o client.o log.o plate.o
+	gcc -o gls board.o client.o global.o log.o plate.o
 
 # Remove all generated output.
 clean:
@@ -35,7 +36,8 @@ tidy:
 # Compile the server.
 server:
 	gcc -c board.c
+	gcc -c global.c
 	gcc -c log.c
 	gcc -c plate.c
 	gcc -c server.c
-	gcc -o glsd board.o log.o plate.o server.o
+	gcc -o glsd board.o global.o log.o plate.o server.o

@@ -1,6 +1,4 @@
 /**
- *  Contains global variables.
- *
  *  Copyright (C) 2015  "Frostsnow" (Wade T. Cline).
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -17,18 +15,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef global_H
-#define global_H
+#include "global.h"
 
-#include "log.h"
+char* g_serror(char* message) {
+	static char buffer[256];
 
-// Global logger.
-struct log g_log;
+	// Concatenate messages.
+	snprintf(buffer, sizeof(buffer), "%s: %m", message);
 
-/**
- * Concates the user-defined message and the current system error message (as
- * specified via 'errno') and returns a pointer to the resulting concatenation.
- */
-char* g_serror(char* message);
-
-#endif // global_H
+	// Return concatenation.
+	return buffer;
+}

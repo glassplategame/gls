@@ -33,7 +33,7 @@ int plate_read(struct plate* plate, int fd) {
 
 	// Write the buffer to the file.
 	if (read(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
-		log_error(&g_log, "Reading plate buffer");
+		log_error(&g_log, g_serror("Reading plate buffer"));
 		free(buffer);
 		return -1;
 	}
@@ -81,7 +81,7 @@ int plate_write(struct plate* plate, int fd) {
 
 	// Write the buffer to the file.
 	if (write(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
-		log_error(&g_log, "Writing plate buffer");
+		log_error(&g_log, g_serror("Writing plate buffer"));
 		free(buffer);
 		return -1;
 	}
