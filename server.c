@@ -22,6 +22,7 @@
 
 #include <errno.h>
 #include <netinet/ip.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -48,6 +49,18 @@ int main(int argc, char* argv[]) {
 		// Have the logger write to 'stdout'.
 		// Hacky, but reasonable, me thinks.
 		g_log.fd = STDOUT_FILENO;
+	}
+
+	// Ignore 'SIGPIPE' signals.
+	// Note that, according to the SIGNAL(2) man page dated 2014-08-19,
+	// this is one of the few portable uses of 'singal'; if this gets
+	// refactored in order to use a signal handler function, change to
+	// the 'sigaction' system call.
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		snprintf(buffer, sizeof(buffer), "Unable to ignore SIGPIPE: %s",
+			strerror(errno));
+		log_error(&g_log, buffer);
+		exit(EXIT_FAILURE);
 	}
 
 	// Create a new game.
