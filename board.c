@@ -118,17 +118,29 @@ int board_print(struct board* board, int fd) {
 		return -1;
 	}
 
-	// Write each plate to the file descriptor.
+	// Write column headers.
 	offset = 0;
+	for (i = 0; i < 16; i++) {
+		buffer[offset++] = ' ';
+	}
+	for (i = 0; i < BOARD_PLATE_COLUMN_COUNT; i++) {
+		strcpy(&buffer[offset], "   1  ");
+		buffer[offset + 3] += i; // So hack.
+		offset += 6;
+	}
+	buffer[offset++] = '\n';
+
+	// Write each plate to the file descriptor.
 	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
 		// Write row border.
 		offset += board_print_border(board, &buffer[offset]);
 
 		// Write left margin.
-		for (k = 0; k < 16; k++) {
-			buffer[offset + k] = ' ';
+		for (k = 0; k < 14; k++) {
+			buffer[offset++] = ' ';
 		}
-		offset += k;
+		buffer[offset++] = 'A' + i; // So hack.
+		buffer[offset++] = ' ';
 
 		// Write plate abbreviations.
 		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
