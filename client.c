@@ -31,6 +31,8 @@
 
 int main(int argc, char* argv[]) {
 	struct board board;
+	const int command_size = 1024;
+	int done;
 	struct sockaddr_in sockaddr_in;
 	int sockfd;
 	socklen_t socklen;
@@ -68,6 +70,49 @@ int main(int argc, char* argv[]) {
 		log_error(&g_log, "Printing board.");
 	}
 
+	// Play the game (main loop).
+	done = 0;
+	while (!done) {
+		int read_count;
+		char command[command_size];
+		const char prompt[] = "> ";
+
+		// Issue command prompt.
+		if (write(STDOUT_FILENO, prompt, sizeof(prompt)) <
+			sizeof(prompt)) {
+			log_error(&g_log, g_serror("Writing prompt"));
+		}
+
+		// Get command from user.
+		memset(command, 0, sizeof(command));
+		read_count = read(STDIN_FILENO, command, sizeof(command));
+		if (read_count == -1) {
+			// Read error.
+			log_error(&g_log, g_serror("Getting command"));
+			done = 1;
+			break;
+		} else if (!read_count) {
+			// EOF.
+			done = 1;
+			if (write(STDOUT_FILENO, "\n", 1) < 1) {
+				log_warn(&g_log, g_serror("Clean-quit on EOF"));
+			}
+			continue;
+		} else if (read_count == sizeof(command)) {
+			// Command too long.
+			log_warn(&g_log, "Command too long; skipping");
+			continue;
+		}
+		command[read_count - 1] = '\0';
+
+		// Process user's command.
+		if (!strcmp(command, "quit")) {
+			done = 1;
+		} else {
+			log_warn(&g_log, "Command not recognized");
+		}
+	}
+
 	// Close connection to the server.
 	if (close(sockfd) == -1) {
 		log_error(&g_log, "Closing connection to server.");
@@ -75,4 +120,7 @@ int main(int argc, char* argv[]) {
 
 	// Close the logger.
 	log_free(&g_log);
+
+	// Return success.
+	exit(EXIT_SUCCESS);
 }
