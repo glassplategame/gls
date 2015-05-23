@@ -44,6 +44,7 @@ int main(int argc, char* argv[]) {
 	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sockfd == -1) {
 		perror("Unable to create socket");
+		exit(EXIT_FAILURE);
 	}
 
 	// Connect to the server.
@@ -54,6 +55,7 @@ int main(int argc, char* argv[]) {
 	if (connect(sockfd, (struct sockaddr*)&sockaddr_in,
 		sizeof(sockaddr_in)) == -1) {
 		perror("Connecting to server");
+		exit(EXIT_FAILURE);
 	}
 
 	// Read in the game board.
