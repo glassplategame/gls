@@ -108,7 +108,7 @@ int board_read(struct board* board, int fd) {
 
 	// Read each plate.
 	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
-		for (j = 0; j < BOARD_PLATE_ROW_COUNT; j++) {
+		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
 			if (plate_read(&board->plates[i][j], fd) == -1) {
 				return -1;
 			}
