@@ -106,10 +106,11 @@ int main(int argc, char* argv[]) {
 		command[read_count - 1] = '\0';
 
 		// Process user's command.
-		if (!strcmp(command, "quit")) {
-			done = 1;
+		if (!strcmp(command, "board")) {
+			board_print(&board, STDOUT_FILENO);
 		} else if (!strcmp(command, "help") || !strcmp(command, "?")) {
 			char* message =
+				"board: Print the game board.\n"
 				"help: Show this help menu.\n"
 				"quit: Exit the program.\n"
 				"?: Same as 'help'.\n";
@@ -117,6 +118,8 @@ int main(int argc, char* argv[]) {
 				strlen(message)) {
 				log_error(&g_log, "Writing help message");
 			}
+		} else if (!strcmp(command, "quit")) {
+			done = 1;
 		} else {
 			log_warn(&g_log, "Command not recognized");
 		}
