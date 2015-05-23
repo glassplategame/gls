@@ -108,6 +108,15 @@ int main(int argc, char* argv[]) {
 		// Process user's command.
 		if (!strcmp(command, "quit")) {
 			done = 1;
+		} else if (!strcmp(command, "help") || !strcmp(command, "?")) {
+			char* message =
+				"help: Show this help menu.\n"
+				"quit: Exit the program.\n"
+				"?: Same as 'help'.\n";
+			if (write(STDOUT_FILENO, message, strlen(message)) <
+				strlen(message)) {
+				log_error(&g_log, "Writing help message");
+			}
 		} else {
 			log_warn(&g_log, "Command not recognized");
 		}
