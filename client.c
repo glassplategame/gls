@@ -63,7 +63,8 @@ int main(int argc, char* argv[]) {
 		log_error(&g_log, "Getting board from server.");
 	}
 
-	if (board_write(&board, STDOUT_FILENO) == -1) {
+	// Print the game board.
+	if (board_print(&board, STDOUT_FILENO) == -1) {
 		log_error(&g_log, "Printing board.");
 	}
 

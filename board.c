@@ -102,6 +102,87 @@ void board_init(struct board* board) {
 	strncpy(board->plates[4][5].abbrev, "Anp", PLATE_ABBREV_LENGTH);
 }
 
+int board_print(struct board* board, int fd) {
+	int offset;
+	char* buffer;
+	const int height = 25;
+	int i;
+	int j;
+	int k;
+	const int width = 80;
+
+	// Allocate buffer for writing board.
+	buffer = malloc(width * height);
+	if (!buffer) {
+		log_error(&g_log, "Allocating board print buffer");
+		return -1;
+	}
+
+	// Write each plate to the file descriptor.
+	offset = 0;
+	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
+		// Write row border.
+		offset += board_print_border(board, &buffer[offset]);
+
+		// Write left margin.
+		for (k = 0; k < 16; k++) {
+			buffer[offset + k] = ' ';
+		}
+		offset += k;
+
+		// Write plate abbreviations.
+		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
+			// Write plate abbreviations.
+			strcpy(&buffer[offset], "| ");
+			offset += 2;
+			strncpy(&buffer[offset], board->plates[i][j].abbrev,
+				3);
+			for (k = 0; k < 3; k++) {
+				// Replace empty characters with space.
+				if (buffer[offset + k] == '\0') {
+					buffer[offset + k] = ' ';
+				}
+			}
+			offset += k;
+			buffer[offset++] = ' ';
+		}
+		buffer[offset++] = '|';
+		buffer[offset++] = '\n';
+	}
+	offset += board_print_border(board, &buffer[offset]);
+
+	// Write board to file.
+	if (write(fd, buffer, strlen(buffer)) == -1) {
+		log_error(&g_log, g_serror("Printing board"));
+	}
+
+	// Free buffer.
+	free(buffer);
+
+	// Return success.
+	return 0;
+}
+
+static size_t board_print_border(struct board* board, char* buffer) {
+	int i;
+
+	// Write row border.
+	for (i = 0; i < 16; i++) {
+		buffer[i] = ' ';
+	}
+	for ( ; i < 65; i++) {
+		if ((i - 16) % 6) {
+			buffer[i] = '-';
+		} else {
+			buffer[i] = '+';
+		}
+	}
+	buffer[i++] = '\n';
+
+	// Return bytes buffered.
+	return i;
+}
+
 int board_read(struct board* board, int fd) {
 	int i;
 	int j;

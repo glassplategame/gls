@@ -42,6 +42,18 @@ struct board {
 void board_init(struct board* board);
 
 /**
+ * Pretty-print the board to the specified file descriptor.
+ */
+int board_print(struct board* board, int fd);
+
+/**
+ * Internal function that buffers the row border to the specified buffer.
+ *
+ * Returns the number of bytes buffered.
+ */
+static size_t board_print_border(struct board* board, char* buffer);
+
+/**
  * Read the board from the specified file.
  */
 int board_read(struct board* board, int fd);
