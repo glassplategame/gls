@@ -20,6 +20,55 @@
 
 #include "plate.h"
 
+int plate_print(struct plate* plate, int fd) {
+	char* buffer;
+	const size_t buffer_size = 2048;
+	int offset;
+	char* string;
+
+	// Allocate buffer.
+	buffer = (char*)malloc(buffer_size);
+	if (!buffer) {
+		log_error(&g_log, "Allocate plate buffer");
+		return -1;
+	}
+	memset(buffer, 0, buffer_size);
+
+	// Place contents in buffer.
+	offset = 0;
+	string = "Name: ";
+	strcpy(buffer, string);
+	offset += strlen(string);
+	strcpy(&buffer[offset], plate->name);
+	offset += strlen(plate->name);
+	buffer[offset++] = '\n';
+	string = "Abbreviation: ";
+	strcpy(&buffer[offset], string);
+	offset += strlen(string);
+	strcpy(&buffer[offset], plate->abbrev);
+	offset += strlen(plate->abbrev);
+	buffer[offset++] = '\n';
+	if (strlen(plate->description)) {
+		string = "Description: ";
+		strcpy(&buffer[offset], string);
+		offset += strlen(string);
+		strcpy(&buffer[offset], plate->description);
+		offset += strlen(plate->description);
+		buffer[offset++] = '\n';
+	}
+
+	// Write buffer to file.
+	if (write(fd, buffer, strlen(buffer)) == -1) {
+		log_error(&g_log, g_serror("Printing plate buffer"));
+	}
+
+	// Free buffer.
+	free(buffer);
+
+	// Return success.
+	return 0;
+}
+
 int plate_read(struct plate* plate, int fd) {
 	char* buffer;
 	char* offset;

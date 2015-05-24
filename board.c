@@ -24,7 +24,7 @@ void board_init(struct board* board) {
 
 	// Use a default set of cards. Hacky.
 	memset(board, 0, sizeof(struct board));
-	strncpy(board->plates[0][0].name, "Ambivalnce", PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][0].name, "Ambivalence", PLATE_NAME_LENGTH);
 	strncpy(board->plates[0][0].abbrev, "Amb", PLATE_ABBREV_LENGTH);
 	strncpy(board->plates[0][1].name, "Art Versus Nature", PLATE_NAME_LENGTH);
 	strncpy(board->plates[0][1].abbrev, "AVN", PLATE_ABBREV_LENGTH);

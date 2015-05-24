@@ -107,8 +107,10 @@ int main(int argc, char* argv[]) {
 
 		// Process user's command.
 		if (!strcmp(command, "board")) {
+			// Print game board.
 			board_print(&board, STDOUT_FILENO);
 		} else if (!strcmp(command, "help") || !strcmp(command, "?")) {
+			// Print help message.
 			char* message =
 				"board: Print the game board.\n"
 				"help: Show this help menu.\n"
@@ -118,10 +120,67 @@ int main(int argc, char* argv[]) {
 				strlen(message)) {
 				log_error(&g_log, "Writing help message");
 			}
+		} else if (!strncmp(command, "plate", 5)) {
+			int column;
+			int offset;
+			int row;
+			int scanning;
+
+			// Scan past whitespace.
+			offset = 4;
+			scanning = 1;
+			while (scanning) {
+				// Check for buffer overruns.
+				if (++offset >= command_size - 2) {
+					log_info(&g_log, "Command too long");
+					break;
+				}
+
+				// Scan past whitespace.
+				if (!isspace(command[++offset])) {
+					scanning = 0;
+				}
+			}
+			if (scanning) {
+				// Command too long; skip.
+				continue;
+			}
+
+			// Parse board coordinates.
+			if (!isalpha(command[offset])) {
+				log_info(&g_log, "Invalid row");
+				continue;
+			}
+			row = command[offset] - 'A';
+			if (row < 0) {
+				log_info(&g_log, "Row too low");
+				continue;
+			} else if (row >= BOARD_PLATE_ROW_COUNT) {
+				log_info(&g_log, "Row too high");
+				continue;
+			}
+			offset++;
+			if (!isdigit(command[offset])) {
+				log_info(&g_log, "Invalid column");
+				continue;
+			}
+			column = command[offset] - '1';
+			if (column < 0) {
+				log_info(&g_log, "Column too low");
+				continue;
+			} else if (column >= BOARD_PLATE_COLUMN_COUNT) {
+				log_info(&g_log, "Column too high");
+				continue;
+			}
+
+			// Print plate.
+			plate_print(&board.plates[row][column], STDOUT_FILENO);
 		} else if (!strcmp(command, "quit")) {
+			// Quit the game.
 			done = 1;
 		} else {
-			log_warn(&g_log, "Command not recognized");
+			// Unknown command.
+			log_info(&g_log, "Command not recognized");
 		}
 	}
 

@@ -42,6 +42,11 @@ struct plate {
 };
 
 /**
+ * Pretty-prints the plate to the specified file.
+ */
+int plate_print(struct plate* plate, int fd);
+
+/**
  * Read the plate from the specified file.
  */
 int plate_read(struct plate* plate, int fd);
