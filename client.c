@@ -113,6 +113,7 @@ int main(int argc, char* argv[]) {
 			// Print help message.
 			char* message =
 				"board: Print the game board.\n"
+				"plate <RowColumn>: Print specifed plate.\n"
 				"help: Show this help menu.\n"
 				"quit: Exit the program.\n"
 				"?: Same as 'help'.\n";
