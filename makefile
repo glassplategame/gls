@@ -39,5 +39,6 @@ server:
 	gcc -c global.c
 	gcc -c log.c
 	gcc -c plate.c
+	gcc -c player.c
 	gcc -c server.c
-	gcc -o glsd board.o global.o log.o plate.o server.o
+	gcc -o glsd board.o global.o log.o plate.o player.o server.o

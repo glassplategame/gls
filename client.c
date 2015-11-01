@@ -20,21 +20,75 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <errno.h>
-#include <netinet/ip.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "client.h"
 
-#include "board.h"
-#include "global.h"
+int client_nickname_write(struct client* client, char* nickname) {
+	struct gls gls;
+	int ret;
+
+	// Write nickname to server.
+	memset(&gls, 0, sizeof(gls));
+	gls.event = GLS_EVENT_NICK_REQ;
+	gls.data.nick_req.seqnumc = ++(client->seqnumc);
+	strncpy(gls.data.nick_req.nick, nickname, PLAYER_NAME_LENGTH);
+	if ((ret = write(client->sockfd, &gls, sizeof(struct gls))) == -1) {
+		// Write error.
+		log_error(&g_log, g_serror("Unable to send nickname"));
+		client->seqnumc--;
+		return -1;
+	} else if (ret < sizeof(struct gls)) {
+		// Partial write.
+		log_error(&g_log, "Buffer partially written");
+		return -1;
+	} else {
+		char buffer[256];
+		snprintf(buffer, sizeof(buffer), "Nickname '%s' "
+			"requested, seqnumc: '%x'", nickname, client->seqnumc);
+		log_info(&g_log, buffer);
+	}
+
+	// Get nickname from server.
+	memset(&gls, 0, sizeof(gls));
+	if ((ret = read(client->sockfd, &gls, sizeof(gls))) == -1) {
+		// Read error.
+		log_error(&g_log, g_serror("Unable to get reply"));
+		return -1;
+        } else if (ret < sizeof(struct gls)) {
+		// Partial read.
+		log_error(&g_log, "Partial buffer read");
+		return -1;
+	}
+	if (gls.event != GLS_EVENT_NICK_REPLY) {
+		// Unexpected event.
+		char buffer[256];
+		snprintf(buffer, sizeof(buffer), "Unexpected event: '%x'",
+			gls.event);
+		log_error(&g_log, buffer);
+		return -1;
+	}
+	if (gls.data.nick_reply.seqnumc != client->seqnumc) {
+		// Unexpected sequence number.
+		char buffer[256];
+		snprintf(buffer, sizeof(buffer), "Expected seqnumc: '%x'"
+			" but got '%x' instead", client->seqnumc - 1,
+			gls.data.nick_reply.seqnumc);
+		log_error(&g_log, buffer);
+		return -1;
+	} else if (!gls.data.nick_reply.accepted) {
+		// Nickname rejected.
+		log_error(&g_log, "Nickname rejected");
+		return -1;
+	} else {
+		// Nickname accepted.
+		log_info(&g_log, "Nickname accepted");
+		return 0;
+	}
+}
 
 int main(int argc, char* argv[]) {
-	struct board board;
-	const int command_size = 1024;
+	struct client client;
 	int done;
 	struct sockaddr_in sockaddr_in;
-	int sockfd;
 	socklen_t socklen;
 
 	// Set up the logger.
@@ -43,8 +97,8 @@ int main(int argc, char* argv[]) {
 	g_log.level = LOG_DEBUG;
 
 	// Set up socket.
-	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sockfd == -1) {
+	client.sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (client.sockfd == -1) {
 		perror("Unable to create socket");
 		exit(EXIT_FAILURE);
 	}
@@ -54,27 +108,30 @@ int main(int argc, char* argv[]) {
 	sockaddr_in.sin_family = AF_INET;
 	sockaddr_in.sin_port = htons(13500);
 	sockaddr_in.sin_addr.s_addr = INADDR_ANY;
-	if (connect(sockfd, (struct sockaddr*)&sockaddr_in,
+	if (connect(client.sockfd, (struct sockaddr*)&sockaddr_in,
 		sizeof(sockaddr_in)) == -1) {
 		perror("Connecting to server");
 		exit(EXIT_FAILURE);
 	}
 
-	// Read in the game board.
-	if (board_read(&board, sockfd) == -1) {
-		log_error(&g_log, "Getting board from server.");
+	// Read sequence number from server.
+	if (read(client.sockfd, &client.seqnumc, sizeof(uint32_t)) !=
+		sizeof(uint32_t)) {
+		perror("Getting server sequence number");
+		exit(EXIT_FAILURE);
 	}
 
-	// Print the game board.
-	if (board_print(&board, STDOUT_FILENO) == -1) {
-		log_error(&g_log, "Printing board.");
+	// Set nickname.
+	if (client_nickname_write(&client, "frostsnow") == -1) {
+		fprintf(stderr, "Nickname set failed\n");
+		exit(EXIT_FAILURE);
 	}
 
 	// Play the game (main loop).
 	done = 0;
 	while (!done) {
 		int read_count;
-		char command[command_size];
+		char command[CLIENT_COMMAND_SIZE];
 		const char prompt[] = "> ";
 
 		// Issue command prompt.
@@ -108,7 +165,7 @@ int main(int argc, char* argv[]) {
 		// Process user's command.
 		if (!strcmp(command, "board")) {
 			// Print game board.
-			board_print(&board, STDOUT_FILENO);
+			board_print(&client.board, STDOUT_FILENO);
 		} else if (!strcmp(command, "help") || !strcmp(command, "?")) {
 			// Print help message.
 			char* message =
@@ -132,7 +189,7 @@ int main(int argc, char* argv[]) {
 			scanning = 1;
 			while (scanning) {
 				// Check for buffer overruns.
-				if (++offset >= command_size - 2) {
+				if (++offset >= CLIENT_COMMAND_SIZE - 2) {
 					log_info(&g_log, "Command too long");
 					break;
 				}
@@ -175,7 +232,8 @@ int main(int argc, char* argv[]) {
 			}
 
 			// Print plate.
-			plate_print(&board.plates[row][column], STDOUT_FILENO);
+			plate_print(&client.board.plates[row][column],
+				STDOUT_FILENO);
 		} else if (!strcmp(command, "quit")) {
 			// Quit the game.
 			done = 1;
@@ -186,7 +244,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Close connection to the server.
-	if (close(sockfd) == -1) {
+	if (close(client.sockfd) == -1) {
 		log_error(&g_log, "Closing connection to server.");
 	}
 
