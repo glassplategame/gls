@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Set nickname.
-	if (client_nickname_write(&client, "frostsnow") == -1) {
+	if (client_nickname_write(&client, "knecht") == -1) {
 		fprintf(stderr, "Nickname set failed\n");
 		exit(EXIT_FAILURE);
 	}
