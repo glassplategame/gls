@@ -51,8 +51,6 @@ struct server {
 	struct player players[SERVER_PLAYER_MAX];
 	// Server currently running.
 	unsigned running:1;
-	// Canonical event synchronization number.
-	uint32_t seqnum;
 	// Incoming connections socket.
 	int sockfd;
 	// Still not sure what exactly this thing is.

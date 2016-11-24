@@ -25,9 +25,6 @@
 int server_init(struct server* server) {
 	int sockfd;
 
-	// Reset sequence number.
-	server->seqnum = 0;
-
 	// Create a new game.
 	board_init(&server->board);
 	memset(server->players, 0, sizeof(struct player) * SERVER_PLAYER_MAX);
@@ -90,25 +87,13 @@ server_run(struct server* server) {
 			}
 			if (!player) {
 				// No player slots available.
-				log_error(&g_log, "No player slots available");
+				log_warn(&g_log, "No player slots available");
 				if (close(connection) == -1) {
 					g_serror("Closing connection");
 				}
 			} else {
 				// Initialize new player.
 				player_init(player, connection);
-
-				// Send player sequence number.
-				if (write(player->sockfd, &server->seqnum,
-					sizeof(uint32_t)) != sizeof(uint32_t)) {
-					// Send failed.
-					log_info(&g_log,
-						"Sequence server send failed; "
-						"player disconnected");
-					close(connection);
-					memset(player, 0,
-						sizeof(struct player)); // FIXME
-				}
 			}
 		} else if (connection == -1 && errno != EWOULDBLOCK) {
 			// Connection error.
@@ -141,12 +126,11 @@ server_run(struct server* server) {
 					"Polling players fds"));
 				break;
 			}
-			snprintf(buffer, sizeof(buffer), "Poll ret val: %i", ret);
-			log_info(&g_log, buffer);
+			//snprintf(buffer, sizeof(buffer), "Poll ret val: %i", ret);
+			//log_info(&g_log, buffer);
 
 			// Read player data.
 			for (i = 0; i < pollfd_count; i++) {
-				struct gls gls;
 				struct player* player;
 				struct pollfd* pollfd;
 				int ret;
@@ -185,47 +169,48 @@ server_run(struct server* server) {
 				log_info(&g_log, buffer);
 
 				// Read player data.
-				memset(&gls, 0, sizeof(gls));
-				if ((ret = read(pollfd->fd, &gls,
-					sizeof(gls))) == -1) {
-					// Read error.
-					log_warn(&g_log, g_serror(
-						"Reading player data"));
-					continue;
-				} else if (ret != sizeof(gls)) {
-					snprintf(buffer, sizeof(buffer), "ret: %i", ret);
-					log_info(&g_log, buffer);
-					log_warn(&g_log, g_serror("Unexpected "
-						"buffer length")); // TODO
+				struct gls_header header;
+				if (gls_header_read(&header, player->sockfd)
+					== -1) {
+					log_warn(&g_log, "Unable to read "
+						"header");
+					player_free(player);
 					continue;
 				}
-				if (gls.event != GLS_EVENT_NICK_REQ) {
+				if (header.event != GLS_EVENT_NICK_REQ) {
 					// Unsupported event.
 					log_warn(&g_log,
 						"Unsupported event type");
+					player_free(player);
 					continue;
 				}
 
-				// Handle client event.
-				uint32_t seqnumc;
-				seqnumc = gls.data.nick_req.seqnumc;
-				strncpy(player->name, gls.data.nick_req.nick,
+				// Read nick request.
+				struct gls_nick_req req;
+				if (gls_nick_req_read(&req, player->sockfd)
+					== -1) {
+					log_warn(&g_log, "Unable to read nick "
+						"request");
+					player_free(player);
+					continue;
+				}
+
+				// Process nick request.
+				strlcpy(player->name, req.nick,
 					PLAYER_NAME_LENGTH);
-				player->name[PLAYER_NAME_LENGTH - 1] = '\0';
 				player->authenticated = 1;
 
 				// Reply to client event.
-				memset(&gls, 0, sizeof(gls));
-				gls.event = GLS_EVENT_NICK_REPLY;
-				gls.data.nick_reply.seqnumc = seqnumc;
-				strncpy(gls.data.nick_reply.nick, player->name,
+				struct gls_nick_reply reply;
+				strlcpy(&reply.nick, &req.nick,
 					PLAYER_NAME_LENGTH);
-				gls.data.nick_reply.accepted = 1;
-				if (write(player->sockfd, &gls, sizeof(gls))
+				reply.accepted = 1;
+				if (gls_nick_reply_write(&reply, player->sockfd)
 					== -1) {
-					log_warn(&g_log, g_serror("Unable to "
-						"reply to nick event"));
+					log_warn(&g_log, "Unable to write nick"
+						"reply");
 					player_free(player);
+					continue;
 				}
 			}
 		} while (ret);

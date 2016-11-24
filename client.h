@@ -37,7 +37,6 @@
 struct client {
 	struct board board;
 	int sockfd;
-	uint32_t seqnumc;
 };
 
 int client_nickname_write(struct client* client, char* nickname);

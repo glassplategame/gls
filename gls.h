@@ -19,17 +19,23 @@
 #ifndef gls_H
 #define gls_H
 
+#include <stdint.h>
+#include <sys/uio.h>
+
 #include "player.h"
 
-// Maximum size for a single GLS command.
-#define GLS_SIZE_MAX 4096
+/**
+ * Structure that represents an event in the Glass Plate Game.
+ */
+struct gls_header {
+	// Event type.
+	uint32_t event;
+};
 
 /**
  * Request server to set nick to specified nickname.
  */
 struct gls_nick_req {
-	// Client sequence number.
-	uint32_t seqnumc;
 	// Nickname requested.
 	char nick[PLAYER_NAME_LENGTH];
 };
@@ -38,30 +44,55 @@ struct gls_nick_req {
  * Server response to nickname request.
  */
 struct gls_nick_reply {
-	// Client sequence number of request.
-	uint32_t seqnumc;
 	// Nickname requested.
 	char nick[PLAYER_NAME_LENGTH];
 	// Non-zero if nickname accepted.
-	int accepted;
+	uint16_t accepted;
 };
 
-/**
- * Structure that represents an event in the Glass Plate Game.
- */
-struct gls {
-	// Event type.
-	uint32_t event;
-	// Event data.
-	union {
-		struct gls_nick_req nick_req;
-		struct gls_nick_reply nick_reply;
-		char data[GLS_SIZE_MAX - 4];
-	} data;
-};
-
-// Request nickname.
+// Events.
+// Nickname request.
 #define GLS_EVENT_NICK_REQ 0x00000001
 #define GLS_EVENT_NICK_REPLY 0x00000002
+
+/**
+ * Marshalls the speccified gls header data into the specified buffer.
+ */
+void gls_header_marshal(char* buffer, uint32_t event);
+
+/**
+ * Reads gls protocol data from the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_header_read(struct gls_header* header, int fd);
+
+/**
+ * Read the nick reply from the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_nick_reply_read(struct gls_nick_reply* reply, int fd);
+
+/**
+ * Write the nick reply to the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_nick_reply_write(struct gls_nick_reply* reply, int fd);
+
+/**
+ * Read the nick request from the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_nick_req_read(struct gls_nick_req* req, int fd);
+
+/**
+ * Write the nick request to the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_nick_req_write(struct gls_nick_req* req, int fd);
 
 #endif // gls_H

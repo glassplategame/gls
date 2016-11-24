@@ -23,58 +23,43 @@
 #include "client.h"
 
 int client_nickname_write(struct client* client, char* nickname) {
-	struct gls gls;
+	struct gls_header header;
+	struct gls_nick_reply reply;
+	struct gls_nick_req req;
 	int ret;
 
 	// Write nickname to server.
-	memset(&gls, 0, sizeof(gls));
-	gls.event = GLS_EVENT_NICK_REQ;
-	gls.data.nick_req.seqnumc = ++(client->seqnumc);
-	strncpy(gls.data.nick_req.nick, nickname, PLAYER_NAME_LENGTH);
-	if ((ret = write(client->sockfd, &gls, sizeof(struct gls))) == -1) {
-		// Write error.
-		log_error(&g_log, g_serror("Unable to send nickname"));
-		client->seqnumc--;
-		return -1;
-	} else if (ret < sizeof(struct gls)) {
-		// Partial write.
-		log_error(&g_log, "Buffer partially written");
+	strlcpy(req.nick, nickname, PLAYER_NAME_LENGTH);
+	if (gls_nick_req_write(&req, client->sockfd) == -1) {
+		log_error(&g_log, "Unable to write nickname");
 		return -1;
 	} else {
 		char buffer[256];
 		snprintf(buffer, sizeof(buffer), "Nickname '%s' "
-			"requested, seqnumc: '%x'", nickname, client->seqnumc);
+			"requested", nickname);
 		log_info(&g_log, buffer);
 	}
 
-	// Get nickname from server.
-	memset(&gls, 0, sizeof(gls));
-	if ((ret = read(client->sockfd, &gls, sizeof(gls))) == -1) {
-		// Read error.
-		log_error(&g_log, g_serror("Unable to get reply"));
-		return -1;
-        } else if (ret < sizeof(struct gls)) {
-		// Partial read.
-		log_error(&g_log, "Partial buffer read");
+	// Read nickname from server.
+	if (gls_header_read(&header, client->sockfd) == -1) {
+		// Unable to read header.
+		log_error(&g_log, "Unable to read gls header");
 		return -1;
 	}
-	if (gls.event != GLS_EVENT_NICK_REPLY) {
+	if (header.event != GLS_EVENT_NICK_REPLY) {
 		// Unexpected event.
 		char buffer[256];
 		snprintf(buffer, sizeof(buffer), "Unexpected event: '%x'",
-			gls.event);
+			header.event);
 		log_error(&g_log, buffer);
 		return -1;
 	}
-	if (gls.data.nick_reply.seqnumc != client->seqnumc) {
-		// Unexpected sequence number.
-		char buffer[256];
-		snprintf(buffer, sizeof(buffer), "Expected seqnumc: '%x'"
-			" but got '%x' instead", client->seqnumc - 1,
-			gls.data.nick_reply.seqnumc);
-		log_error(&g_log, buffer);
+	if (gls_nick_reply_read(&reply, client->sockfd) == -1) {
+		log_error(&g_log, "Unable to get nick reply");
 		return -1;
-	} else if (!gls.data.nick_reply.accepted) {
+	}
+	printf("Nick: '%s', accepted: '%u'\n", reply.nick, reply.accepted);
+	if (!reply.accepted) {
 		// Nickname rejected.
 		log_error(&g_log, "Nickname rejected");
 		return -1;
@@ -97,6 +82,7 @@ int main(int argc, char* argv[]) {
 	g_log.level = LOG_DEBUG;
 
 	// Set up socket.
+	memset(&client.board, 0, sizeof(struct board));
 	client.sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (client.sockfd == -1) {
 		perror("Unable to create socket");
@@ -111,13 +97,6 @@ int main(int argc, char* argv[]) {
 	if (connect(client.sockfd, (struct sockaddr*)&sockaddr_in,
 		sizeof(sockaddr_in)) == -1) {
 		perror("Connecting to server");
-		exit(EXIT_FAILURE);
-	}
-
-	// Read sequence number from server.
-	if (read(client.sockfd, &client.seqnumc, sizeof(uint32_t)) !=
-		sizeof(uint32_t)) {
-		perror("Getting server sequence number");
 		exit(EXIT_FAILURE);
 	}
 
