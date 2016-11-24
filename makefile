@@ -12,35 +12,37 @@
 #
 #  You should have received a copy of the GNU Affero General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-CC=gcc
-CFLAGS=-Wall -Werror
+CC = gcc
+CFLAGS = -Wall -Werror --pedantic-errors -rdynamic --std=c99
+LIBS = -lbsd
 
-# Compile the client.
-client:
-	gcc -c board.c
-	gcc -c global.c
-	gcc -c gls.c
-	gcc -c log.c
-	gcc -c client.c
-	gcc -c plate.c
-	gcc -o gls -lbsd board.o client.o global.o gls.o log.o plate.o
+client_files = board global gls log client plate
+client_objs=${client_files:=.o}
+server_files = board global gls log plate player server
+server_objs=${server_files:=.o}
+files=board client global gls log plate player server
+objs=${files:=.o}
+
+# Default rule: compile only the client.
+default: client
 
 # Remove all generated output.
-clean:
+clean: tidy
 	rm -f gls
 	rm -f glsd
 
+# Compile the client.
+client: ${client_objs}
+	${CC} -o gls ${LIBS} ${client_objs}
+
+${objs}: %.o: %.c
+	${CC} ${CFLAGS} -c $<
+
 # Remove extraneous output.
 tidy:
-	rm *.o
+	rm -f ${client_objs}
+	rm -f ${server_objs}
 
 # Compile the server.
-server:
-	gcc -c board.c
-	gcc -c global.c
-	gcc -c gls.c
-	gcc -c log.c
-	gcc -c plate.c
-	gcc -c player.c
-	gcc -c server.c
-	gcc -o glsd -lbsd board.o global.o gls.o log.o plate.o player.o server.o
+server: ${server_objs}
+	${CC} -o glsd ${LIBS} ${server_objs}

@@ -20,6 +20,8 @@
 #ifndef global_H
 #define global_H
 
+#include <errno.h>
+
 #include "log.h"
 
 // Global logger.

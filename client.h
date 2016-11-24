@@ -22,6 +22,7 @@
 #ifndef client_H
 #define client_H
 
+#include <bsd/string.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdint.h>
@@ -30,6 +31,7 @@
 #include <unistd.h>
 
 #include "board.h"
+#include "log.h"
 #include "gls.h"
 
 #define CLIENT_COMMAND_SIZE 1024

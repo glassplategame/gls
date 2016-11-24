@@ -19,8 +19,11 @@
 #ifndef gls_H
 #define gls_H
 
+#include <arpa/inet.h>
+#include <ctype.h>
 #include <stdint.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 #include "player.h"
 

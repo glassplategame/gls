@@ -18,10 +18,9 @@
  */
 #include "board.h"
 
-void board_init(struct board* board) {
-	int i;
-	int j;
+static size_t board_print_border(struct board* board, char* buffer);
 
+void board_init(struct board* board) {
 	// Use a default set of cards. Hacky.
 	memset(board, 0, sizeof(struct board));
 	strncpy(board->plates[0][0].name, "Ambivalence", PLATE_NAME_LENGTH);

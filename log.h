@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /**
  * Describes various logging levels.
@@ -66,6 +67,11 @@ void log_error(struct log* log, char* message);
  * Frees any resources in use by the specified logger.
  */
 int log_free(struct log* log);
+
+/**
+ * Log an info message.
+ */
+void log_info(struct log* log, char* message);
 
 /**
  * Initialize the logger at the specified file path.

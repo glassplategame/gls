@@ -55,7 +55,7 @@ int server_init(struct server* server) {
 	return 0;
 }
 
-server_run(struct server* server) {
+int server_run(struct server* server) {
 	int i;
 	int j;
 
@@ -133,7 +133,6 @@ server_run(struct server* server) {
 			for (i = 0; i < pollfd_count; i++) {
 				struct player* player;
 				struct pollfd* pollfd;
-				int ret;
 
 				// Get player.
 				pollfd = &pollfds[i];
@@ -202,7 +201,7 @@ server_run(struct server* server) {
 
 				// Reply to client event.
 				struct gls_nick_reply reply;
-				strlcpy(&reply.nick, &req.nick,
+				strlcpy(reply.nick, req.nick,
 					PLAYER_NAME_LENGTH);
 				reply.accepted = 1;
 				if (gls_nick_reply_write(&reply, player->sockfd)
@@ -215,6 +214,7 @@ server_run(struct server* server) {
 			}
 		} while (ret);
 	}
+	return 0;
 }
 
 /**
@@ -222,7 +222,6 @@ server_run(struct server* server) {
  */
 int main(int argc, char* argv[]) {
 	struct server server;
-	struct sockaddr_in sockaddr_in;
 
 	// Open log file.
 	if (log_init(&g_log, "./glsd.log", LOG_DEBUG) == -1) {

@@ -26,7 +26,6 @@ int client_nickname_write(struct client* client, char* nickname) {
 	struct gls_header header;
 	struct gls_nick_reply reply;
 	struct gls_nick_req req;
-	int ret;
 
 	// Write nickname to server.
 	strlcpy(req.nick, nickname, PLAYER_NAME_LENGTH);
@@ -58,7 +57,6 @@ int client_nickname_write(struct client* client, char* nickname) {
 		log_error(&g_log, "Unable to get nick reply");
 		return -1;
 	}
-	printf("Nick: '%s', accepted: '%u'\n", reply.nick, reply.accepted);
 	if (!reply.accepted) {
 		// Nickname rejected.
 		log_error(&g_log, "Nickname rejected");
@@ -74,7 +72,6 @@ int main(int argc, char* argv[]) {
 	struct client client;
 	int done;
 	struct sockaddr_in sockaddr_in;
-	socklen_t socklen;
 
 	// Set up the logger.
 	// FIXME: Don't bypass the proper init method.

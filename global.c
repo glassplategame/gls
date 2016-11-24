@@ -21,7 +21,7 @@ char* g_serror(char* message) {
 	static char buffer[256];
 
 	// Concatenate messages.
-	snprintf(buffer, sizeof(buffer), "%s: %m", message);
+	snprintf(buffer, sizeof(buffer), "%s: %s", message, strerror(errno));
 
 	// Return concatenation.
 	return buffer;

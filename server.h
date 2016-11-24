@@ -24,6 +24,7 @@
 
 #include "include.h"
 
+#include <bsd/string.h>
 #include <errno.h>
 #include <poll.h>
 #include <netinet/ip.h>
