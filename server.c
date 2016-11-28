@@ -55,6 +55,91 @@ int server_init(struct server* server) {
 	return 0;
 }
 
+int server_player_data(struct server* server, struct player* player) {
+	// Handle client data.
+	if (!player->authenticated) { // Protocol version exchange.
+		struct gls_protover pver;
+		struct gls_protoverack pack;
+		int accepted;
+
+		// Read client protover.
+		memset(&pver, 0, sizeof(struct gls_protover));
+		if (gls_protover_read(&pver, player->sockfd) == -1) {
+			log_error(&g_log, "Unable to read protover");
+			return -1;
+		}
+
+		// Validate client protover.
+		accepted = 1;
+		if (strncmp(pver.version, "0.0",
+			GLS_PROTOVER_VERSION_LENGTH)) {
+			accepted = 0;
+		}
+
+		// Return protover ack.
+		memset(&pack, 0, sizeof(struct gls_protoverack));
+		pack.ack = accepted;
+		if (!accepted) {
+			strlcpy(pack.reason, "Invalid protocol version",
+				GLS_PROTOVER_REASON_LENGTH);
+		}
+		strlcpy(pack.pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
+		strlcpy(pack.pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
+		strlcpy(pack.pver.software, "glsd",
+			GLS_PROTOVER_SOFTWARE_LENGTH);
+		if (gls_protoverack_write(&pack, player->sockfd) == -1) {
+			log_error(&g_log, "Unable to write protover ack");
+			return -1;
+		}
+		if (!accepted) {
+			return -1;
+		}
+		log_info(&g_log, "Player authenticated");
+		player->authenticated = 1;
+	} else { // Client generated packet.
+		// Read player data.
+		struct gls_header header;
+		if (gls_header_read(&header, player->sockfd)
+			== -1) {
+			log_warn(&g_log, "Unable to read "
+				"header");
+			return -1;
+		}
+		if (header.event != GLS_EVENT_NICK_REQ) {
+			// Unsupported event.
+			log_warn(&g_log,
+				"Unsupported event type");
+			return -1;
+		}
+
+		// Read nick request.
+		struct gls_nick_req req;
+		if (gls_nick_req_read(&req, player->sockfd)
+			== -1) {
+			log_warn(&g_log, "Unable to read nick "
+				"request");
+			return -1;
+		}
+
+		// Process nick request.
+		strlcpy(player->name, req.nick,
+			PLAYER_NAME_LENGTH);
+
+		// Reply to client event.
+		struct gls_nick_reply reply;
+		strlcpy(reply.nick, req.nick,
+			PLAYER_NAME_LENGTH);
+		reply.accepted = 1;
+		if (gls_nick_reply_write(&reply, player->sockfd)
+			== -1) {
+			log_warn(&g_log, "Unable to write nick"
+				"reply");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int server_run(struct server* server) {
 	int i;
 	int j;
@@ -87,6 +172,7 @@ int server_run(struct server* server) {
 			}
 			if (!player) {
 				// No player slots available.
+				// TODO: Send protover ack with reason.
 				log_warn(&g_log, "No player slots available");
 				if (close(connection) == -1) {
 					g_serror("Closing connection");
@@ -119,15 +205,12 @@ int server_run(struct server* server) {
 			}
 
 			// Call poll.
-			char buffer[256];
 			ret = poll(pollfds, pollfd_count, 10);
 			if (ret == -1) {
 				log_error(&g_log, g_serror(
 					"Polling players fds"));
 				break;
 			}
-			//snprintf(buffer, sizeof(buffer), "Poll ret val: %i", ret);
-			//log_info(&g_log, buffer);
 
 			// Read player data.
 			for (i = 0; i < pollfd_count; i++) {
@@ -164,52 +247,12 @@ int server_run(struct server* server) {
 					// No data from player.
 					continue;
 				}
-				snprintf(buffer, sizeof(buffer), "revents: %i", pollfd->revents);
-				log_info(&g_log, buffer);
 
-				// Read player data.
-				struct gls_header header;
-				if (gls_header_read(&header, player->sockfd)
-					== -1) {
-					log_warn(&g_log, "Unable to read "
-						"header");
+				// Handle player data.
+				if (server_player_data(server, player) == -1) {
+					log_warn(&g_log, "Error handling "
+						"player data");
 					player_free(player);
-					continue;
-				}
-				if (header.event != GLS_EVENT_NICK_REQ) {
-					// Unsupported event.
-					log_warn(&g_log,
-						"Unsupported event type");
-					player_free(player);
-					continue;
-				}
-
-				// Read nick request.
-				struct gls_nick_req req;
-				if (gls_nick_req_read(&req, player->sockfd)
-					== -1) {
-					log_warn(&g_log, "Unable to read nick "
-						"request");
-					player_free(player);
-					continue;
-				}
-
-				// Process nick request.
-				strlcpy(player->name, req.nick,
-					PLAYER_NAME_LENGTH);
-				player->authenticated = 1;
-
-				// Reply to client event.
-				struct gls_nick_reply reply;
-				strlcpy(reply.nick, req.nick,
-					PLAYER_NAME_LENGTH);
-				reply.accepted = 1;
-				if (gls_nick_reply_write(&reply, player->sockfd)
-					== -1) {
-					log_warn(&g_log, "Unable to write nick"
-						"reply");
-					player_free(player);
-					continue;
 				}
 			}
 		} while (ret);

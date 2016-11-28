@@ -28,6 +28,7 @@ int client_nickname_write(struct client* client, char* nickname) {
 	struct gls_nick_req req;
 
 	// Write nickname to server.
+	memset(&req, 0, sizeof(struct gls_nick_req));
 	strlcpy(req.nick, nickname, PLAYER_NAME_LENGTH);
 	if (gls_nick_req_write(&req, client->sockfd) == -1) {
 		log_error(&g_log, "Unable to write nickname");
@@ -71,6 +72,8 @@ int client_nickname_write(struct client* client, char* nickname) {
 int main(int argc, char* argv[]) {
 	struct client client;
 	int done;
+	struct gls_protover pver;
+	struct gls_protoverack pack;
 	struct sockaddr_in sockaddr_in;
 
 	// Set up the logger.
@@ -94,6 +97,25 @@ int main(int argc, char* argv[]) {
 	if (connect(client.sockfd, (struct sockaddr*)&sockaddr_in,
 		sizeof(sockaddr_in)) == -1) {
 		perror("Connecting to server");
+		exit(EXIT_FAILURE);
+	}
+
+	// Exchange protocol versions.
+	memset(&pver, 0, sizeof(struct gls_protover));
+	strlcpy(pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
+	strlcpy(pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
+	strlcpy(pver.software, "gls", GLS_PROTOVER_SOFTWARE_LENGTH);
+	if (gls_protover_write(&pver, client.sockfd) == -1) {
+		fprintf(stderr, "Unable to write protover\n");
+		exit(EXIT_FAILURE);
+	}
+	if (gls_protoverack_read(&pack, client.sockfd) == -1) {
+		fprintf(stderr, "Unable to read protover ack\n");
+		exit(EXIT_FAILURE);
+	}
+	if (!pack.ack) {
+		fprintf(stderr, "Server refused connection: '%s'\n",
+			pack.reason);
 		exit(EXIT_FAILURE);
 	}
 

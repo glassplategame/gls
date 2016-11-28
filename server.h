@@ -64,6 +64,11 @@ struct server {
 int server_init(struct server* server);
 
 /**
+ * Process incoming data from the specified player.
+ */
+int server_player_data(struct server* server, struct player* player);
+
+/**
  * Server run loop.
  */
 int server_run(struct server* server);

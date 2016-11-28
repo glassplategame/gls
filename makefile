@@ -35,7 +35,7 @@ clean: tidy
 client: ${client_objs}
 	${CC} -o gls ${LIBS} ${client_objs}
 
-${objs}: %.o: %.c
+${objs}: %.o: %.c %.h
 	${CC} ${CFLAGS} -c $<
 
 # Remove extraneous output.

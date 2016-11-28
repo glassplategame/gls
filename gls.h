@@ -20,6 +20,7 @@
 #define gls_H
 
 #include <arpa/inet.h>
+#include <bsd/string.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <sys/uio.h>
@@ -51,6 +52,25 @@ struct gls_nick_reply {
 	char nick[PLAYER_NAME_LENGTH];
 	// Non-zero if nickname accepted.
 	uint16_t accepted;
+};
+
+/**
+ * Protocol Version data.
+ */
+#define GLS_PROTOVER_MAGIC_LENGTH 4
+#define GLS_PROTOVER_VERSION_LENGTH 16
+#define GLS_PROTOVER_SOFTWARE_LENGTH 128
+struct gls_protover {
+	char magic[GLS_PROTOVER_MAGIC_LENGTH];
+	char version[GLS_PROTOVER_VERSION_LENGTH];
+	char software[GLS_PROTOVER_SOFTWARE_LENGTH];
+};
+
+#define GLS_PROTOVER_REASON_LENGTH 64
+struct gls_protoverack {
+	uint16_t ack;
+	char reason[GLS_PROTOVER_REASON_LENGTH];
+	struct gls_protover pver;
 };
 
 // Events.
@@ -97,5 +117,35 @@ int gls_nick_req_read(struct gls_nick_req* req, int fd);
  * Returns 0 on success, -1 on error.
  */
 int gls_nick_req_write(struct gls_nick_req* req, int fd);
+
+/**
+ * Read the protocol version information from the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_protover_read(struct gls_protover* pver, int fd);
+
+/**
+ * Write the protocol version information to the specified file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_protover_write(struct gls_protover* pver, int fd);
+
+/**
+ * Read the protocol version information ackowledgement from the specified
+ * file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_protoverack_read(struct gls_protoverack* pack, int fd);
+
+/**
+ * Write the protocol version information acknowledgement to the specified
+ * file descriptor.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int gls_protoverack_write(struct gls_protoverack* pack, int fd);
 
 #endif // gls_H
