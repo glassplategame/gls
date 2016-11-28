@@ -80,6 +80,7 @@ int main(int argc, char* argv[]) {
 	// FIXME: Don't bypass the proper init method.
 	g_log.fd = STDOUT_FILENO;
 	g_log.level = LOG_DEBUG;
+	g_log.header = 0;
 
 	// Set up socket.
 	memset(&client.board, 0, sizeof(struct board));

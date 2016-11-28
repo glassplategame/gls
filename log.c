@@ -19,37 +19,9 @@
 
 #include "log.h"
 
-void log_debug(struct log* log, char* message) {
-	// Check log level.
-	if (log->level > LOG_DEBUG) {
-		return;
-	}
-
-	// Write the message.
-	snprintf(log->buffer, sizeof(log->buffer), "D: %s\n", message);
-	log_write(log);
-}
-
-void log_error(struct log* log, char* message) {
-	// Log message.
-	snprintf(log->buffer, sizeof(log->buffer), "E: %s\n", message);
-	log_write(log);
-}
-
 int log_free(struct log* log) {
 	// Close log file.
 	return close(log->fd);
-}
-
-void log_info(struct log* log, char* message) {
-	// Check log level.
-	if (log->level > LOG_INFO) {
-		return;
-	}
-
-	// Write the message.
-	snprintf(log->buffer, sizeof(log->buffer), "I: %s\n", message);
-	log_write(log);
 }
 
 int log_init(struct log* log, char* path, enum log_level level) {
@@ -66,20 +38,10 @@ int log_init(struct log* log, char* path, enum log_level level) {
 
 	// Set log level.
 	log->level = level;
+	log->header = 1;
 
 	// Return success.
 	return 0;
-}
-
-void log_warn(struct log* log, char* message) {
-	// Check log level.
-	if (log->level > LOG_WARN) {
-		return;
-	}
-
-	// Write the message.
-	snprintf(log->buffer, sizeof(log->buffer), "W: %s\n", message);
-	log_write(log);
 }
 
 inline void log_write(struct log* log) {
@@ -89,3 +51,13 @@ inline void log_write(struct log* log) {
 		fprintf(stderr, "%s\n", log->buffer);
 	}
 }
+
+const char* LOG_STR_DEBUG = "DEBUG";
+const char* LOG_STR_INFO = "INFO";
+const char* LOG_STR_WARN = "WARN";
+const char* LOG_STR_ERROR = "ERROR";
+
+LOG_LEVEL_DECLARATION(debug, DEBUG)
+LOG_LEVEL_DECLARATION(info, INFO)
+LOG_LEVEL_DECLARATION(warn, WARN)
+LOG_LEVEL_DECLARATION(error, ERROR)

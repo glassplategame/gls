@@ -21,6 +21,7 @@
 #define log_H
 
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -40,6 +41,10 @@ enum log_level {
 	LOG_WARN,
 	LOG_ERROR
 };
+extern const char* LOG_STR_DEBUG;
+extern const char* LOG_STR_INFO;
+extern const char* LOG_STR_WARN;
+extern const char* LOG_STR_ERROR;
 
 /**
  * Writes data to a file.
@@ -47,21 +52,15 @@ enum log_level {
 struct log {
 	// Internal buffer for storing messages before writing.
 	char buffer[256];
-	// Write messages at or above this log level.
-	enum log_level level;
 	// File to write to.
 	int fd;
+	// Whether to print level header for each message.
+	int header;
+	// Write messages at or above this log level.
+	enum log_level level;
+	// Another internal buffer.
+	char tmp[256];
 };
-
-/**
- * Log a debug message.
- */
-void log_debug(struct log* log, char* message);
-
-/**
- * Log an error message.
- */
-void log_error(struct log* log, char* message);
 
 /**
  * Frees any resources in use by the specified logger.
@@ -69,24 +68,43 @@ void log_error(struct log* log, char* message);
 int log_free(struct log* log);
 
 /**
- * Log an info message.
- */
-void log_info(struct log* log, char* message);
-
-/**
  * Initialize the logger at the specified file path.
  */
 int log_init(struct log* log, char* path, enum log_level level);
-
-/**
- * Log a warning message.
- */
-void log_warn(struct log* log, char* message);
 
 /**
  * Internal function that actually writes and catches log errors using the
  * internal buffer.
  */
 void log_write(struct log* log);
+
+#define LOG_LEVEL_DEFINITION(name, NAME)				\
+void log_##name (struct log* log, char* format, ...)			\
+	__attribute__((format(printf, 2, 3)));
+
+#define LOG_LEVEL_DECLARATION(name, NAME)				\
+void log_##name (struct log* log, char* format, ...) {			\
+	va_list ap;							\
+									\
+	if (log->level > LOG_##NAME) {					\
+		return;							\
+	}								\
+									\
+	va_start(ap, format); 						\
+	if (log->header) {						\
+		snprintf(log->tmp, sizeof(log->tmp), "[%s]: %s\n",	\
+			LOG_STR_##NAME,	format);			\
+	} else {							\
+		snprintf(log->tmp, sizeof(log->tmp), "%s\n", format);	\
+	}								\
+	vsnprintf(log->buffer, sizeof(log->buffer), log->tmp, ap);	\
+	va_end(ap);							\
+	log_write(log);							\
+}
+
+LOG_LEVEL_DEFINITION(debug, DEBUG)
+LOG_LEVEL_DEFINITION(info, INFO)
+LOG_LEVEL_DEFINITION(warn, WARN)
+LOG_LEVEL_DEFINITION(error, ERROR)
 
 #endif // log_H
