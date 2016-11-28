@@ -17,6 +17,11 @@
 
 #include "global.h"
 
+G_LOG_DEFINITION(debug)
+G_LOG_DEFINITION(info)
+G_LOG_DEFINITION(warn)
+G_LOG_DEFINITION(error)
+
 char* g_serror(char* message) {
 	static char buffer[256];
 

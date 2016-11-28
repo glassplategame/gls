@@ -79,18 +79,23 @@ int log_init(struct log* log, char* path, enum log_level level);
 void log_write(struct log* log);
 
 #define LOG_LEVEL_DEFINITION(name, NAME)				\
-void log_##name (struct log* log, char* format, ...)			\
-	__attribute__((format(printf, 2, 3)));
+void log_##name(struct log* log, char* format, ...)			\
+	__attribute__((format(printf, 2, 3)));				\
+void log_v##name(struct log* log, char* format, va_list ap);
 
 #define LOG_LEVEL_DECLARATION(name, NAME)				\
-void log_##name (struct log* log, char* format, ...) {			\
+void log_##name(struct log* log, char* format, ...) {			\
 	va_list ap;							\
 									\
+	va_start(ap, format); 						\
+	log_v##name(log, format, ap);					\
+	va_end(ap);							\
+}									\
+void log_v##name(struct log* log, char* format, va_list ap) {		\
 	if (log->level > LOG_##NAME) {					\
 		return;							\
 	}								\
 									\
-	va_start(ap, format); 						\
 	if (log->header) {						\
 		snprintf(log->tmp, sizeof(log->tmp), "[%s]: %s\n",	\
 			LOG_STR_##NAME,	format);			\
@@ -98,7 +103,6 @@ void log_##name (struct log* log, char* format, ...) {			\
 		snprintf(log->tmp, sizeof(log->tmp), "%s\n", format);	\
 	}								\
 	vsnprintf(log->buffer, sizeof(log->buffer), log->tmp, ap);	\
-	va_end(ap);							\
 	log_write(log);							\
 }
 

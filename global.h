@@ -27,6 +27,23 @@
 // Global logger.
 struct log g_log;
 
+#define G_LOG_DECLARATION(level)					\
+void g_log_##level(char* format, ...);
+
+#define G_LOG_DEFINITION(level)						\
+void g_log_##level(char* format, ...) {					\
+	va_list ap;							\
+									\
+	va_start(ap, format);						\
+	log_v##level(&g_log, format, ap);				\
+	va_end(ap);							\
+}
+
+G_LOG_DECLARATION(debug)
+G_LOG_DECLARATION(info)
+G_LOG_DECLARATION(warn)
+G_LOG_DECLARATION(error)
+
 /**
  * Concates the user-defined message and the current system error message (as
  * specified via 'errno') and returns a pointer to the resulting concatenation.
