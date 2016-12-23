@@ -20,7 +20,7 @@
 
 #include "plate.h"
 
-int plate_print(struct plate* plate, int fd) {
+struct flub* plate_print(struct plate* plate, int fd) {
 	char* buffer;
 	const size_t buffer_size = 2048;
 	int offset;
@@ -29,8 +29,7 @@ int plate_print(struct plate* plate, int fd) {
 	// Allocate buffer.
 	buffer = (char*)malloc(buffer_size);
 	if (!buffer) {
-		log_error(&g_log, "Allocate plate buffer");
-		return -1;
+		return g_flub_toss("Unable to allocate plate buffer");
 	}
 	memset(buffer, 0, buffer_size);
 
@@ -66,25 +65,23 @@ int plate_print(struct plate* plate, int fd) {
 	free(buffer);
 
 	// Return success.
-	return 0;
+	return NULL;
 }
 
-int plate_read(struct plate* plate, int fd) {
+struct flub* plate_read(struct plate* plate, int fd) {
 	char* buffer;
 	char* offset;
 
 	// Create a buffer in memory.
 	buffer = (char*)malloc(PLATE_SIZE_PACKED);
 	if (!buffer) {
-		log_error(&g_log, "Allocating plate buffer");
-		return -1;
+		return g_flub_toss("Unable to allocate plate buffer");
 	}
 
 	// Write the buffer to the file.
 	if (read(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
-		log_error(&g_log, g_serror("Reading plate buffer"));
 		free(buffer);
-		return -1;
+		return g_flub_toss(g_serror("Reading plate buffer"));
 	}
 
 	// Read data from the buffer.
@@ -105,18 +102,17 @@ int plate_read(struct plate* plate, int fd) {
 	free(buffer);
 
 	// Return success.
-	return 0;
+	return NULL;
 }
 
-int plate_write(struct plate* plate, int fd) {
+struct flub* plate_write(struct plate* plate, int fd) {
 	char* buffer;
 	char* offset;
 
 	// Create a buffer in memory.
 	buffer = (char*)malloc(PLATE_SIZE_PACKED);
 	if (!buffer) {
-		log_error(&g_log, "Allocating plate buffer");
-		return -1;
+		return g_flub_toss("Unable to allocate plate buffer");
 	}
 
 	// Place data into the buffer.
@@ -130,9 +126,8 @@ int plate_write(struct plate* plate, int fd) {
 
 	// Write the buffer to the file.
 	if (write(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
-		log_error(&g_log, g_serror("Writing plate buffer"));
 		free(buffer);
-		return -1;
+		return g_flub_toss(g_serror("Writing plate buffer"));
 	}
 
 	// Free the buffer from memory.

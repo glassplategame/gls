@@ -88,49 +88,49 @@ void gls_header_marshal(char* buffer, uint32_t event);
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_header_read(struct gls_header* header, int fd);
+struct flub* gls_header_read(struct gls_header* header, int fd);
 
 /**
  * Read the nick reply from the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_nick_reply_read(struct gls_nick_reply* reply, int fd);
+struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd);
 
 /**
  * Write the nick reply to the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_nick_reply_write(struct gls_nick_reply* reply, int fd);
+struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd);
 
 /**
  * Read the nick request from the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_nick_req_read(struct gls_nick_req* req, int fd);
+struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd);
 
 /**
  * Write the nick request to the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_nick_req_write(struct gls_nick_req* req, int fd);
+struct flub* gls_nick_req_write(struct gls_nick_req* req, int fd);
 
 /**
  * Read the protocol version information from the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_protover_read(struct gls_protover* pver, int fd);
+struct flub* gls_protover_read(struct gls_protover* pver, int fd);
 
 /**
  * Write the protocol version information to the specified file descriptor.
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_protover_write(struct gls_protover* pver, int fd);
+struct flub* gls_protover_write(struct gls_protover* pver, int fd);
 
 /**
  * Read the protocol version information ackowledgement from the specified
@@ -138,7 +138,7 @@ int gls_protover_write(struct gls_protover* pver, int fd);
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_protoverack_read(struct gls_protoverack* pack, int fd);
+struct flub* gls_protoverack_read(struct gls_protoverack* pack, int fd);
 
 /**
  * Write the protocol version information acknowledgement to the specified
@@ -146,6 +146,6 @@ int gls_protoverack_read(struct gls_protoverack* pack, int fd);
  *
  * Returns 0 on success, -1 on error.
  */
-int gls_protoverack_write(struct gls_protoverack* pack, int fd);
+struct flub* gls_protoverack_write(struct gls_protoverack* pack, int fd);
 
 #endif // gls_H

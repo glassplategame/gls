@@ -22,7 +22,7 @@
 
 #include "server.h"
 
-int server_init(struct server* server) {
+struct flub* server_init(struct server* server) {
 	int sockfd;
 
 	// Create a new game.
@@ -32,8 +32,7 @@ int server_init(struct server* server) {
 	// Set up socket.
 	sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	if (sockfd == -1) {
-		log_error(&g_log, g_serror("Unable to create socket"));
-		return -1;
+		return g_flub_toss(g_serror("Unable to create socket"));
 	}
 	server->sockfd = sockfd;
 	memset(&server->sockaddr_in, 0, sizeof(struct sockaddr_in));
@@ -42,36 +41,37 @@ int server_init(struct server* server) {
 	server->sockaddr_in.sin_addr.s_addr = INADDR_ANY;
 	if (bind(server->sockfd, (struct sockaddr*)&server->sockaddr_in,
 		sizeof(struct sockaddr_in)) == -1) {
-		log_error(&g_log, g_serror("Socket binding failed"));
-		return -1;
+		return g_flub_toss(g_serror("Socket binding failed"));
 	}
 	if (listen(server->sockfd, 16) == -1) {
-		log_error(&g_log, g_serror("Socket listening failed"));
-		return -1;
+		return g_flub_toss(g_serror("Socket listening failed"));
 	}
 
 	// Not running.
 	server->running = 0;
-	return 0;
+	return NULL;
 }
 
-int server_player_data(struct server* server, struct player* player) {
+struct flub* server_player_data(struct server* server, struct player* player) {
+	struct flub* flub;
+
 	// Handle client data.
 	if (!player->authenticated) { // Protocol version exchange.
+		char* protocol = "0.0";
 		struct gls_protover pver;
 		struct gls_protoverack pack;
 		int accepted;
 
 		// Read client protover.
 		memset(&pver, 0, sizeof(struct gls_protover));
-		if (gls_protover_read(&pver, player->sockfd) == -1) {
-			log_error(&g_log, "Unable to read protover");
-			return -1;
+		flub = gls_protover_read(&pver, player->sockfd);
+		if (flub) {
+			return flub_append(flub, "unable to read protover");
 		}
 
 		// Validate client protover.
 		accepted = 1;
-		if (strncmp(pver.version, "0.0",
+		if (strncmp(pver.version, protocol,
 			GLS_PROTOVER_VERSION_LENGTH)) {
 			accepted = 0;
 		}
@@ -80,45 +80,42 @@ int server_player_data(struct server* server, struct player* player) {
 		memset(&pack, 0, sizeof(struct gls_protoverack));
 		pack.ack = accepted;
 		if (!accepted) {
-			strlcpy(pack.reason, "Invalid protocol version",
-				GLS_PROTOVER_REASON_LENGTH);
+			snprintf(pack.reason, GLS_PROTOVER_REASON_LENGTH,
+				"Invalid protocol version '%s' (expected '%s')",
+				pver.version, protocol);
 		}
 		strlcpy(pack.pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
 		strlcpy(pack.pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
 		strlcpy(pack.pver.software, "glsd",
 			GLS_PROTOVER_SOFTWARE_LENGTH);
-		if (gls_protoverack_write(&pack, player->sockfd) == -1) {
-			log_error(&g_log, "Unable to write protover ack");
-			return -1;
+		flub = gls_protoverack_write(&pack, player->sockfd);
+		if (flub) {
+			return flub_append(flub, "unable to write protover "
+				"ack");
 		}
 		if (!accepted) {
-			return -1;
+			return g_flub_toss("Protcol version not accepted: %s",
+				pack.reason);
 		}
 		log_info(&g_log, "Player authenticated");
 		player->authenticated = 1;
 	} else { // Client generated packet.
 		// Read player data.
 		struct gls_header header;
-		if (gls_header_read(&header, player->sockfd)
-			== -1) {
-			log_warn(&g_log, "Unable to read "
-				"header");
-			return -1;
+		flub = gls_header_read(&header, player->sockfd);
+		if (flub) {
+			return flub_append(flub, "unable to read header");
 		}
 		if (header.event != GLS_EVENT_NICK_REQ) {
 			// Unsupported event.
-			log_warn(&g_log,
-				"Unsupported event type");
-			return -1;
+			return g_flub_toss("Unsupported event type");
 		}
 
 		// Read nick request.
 		struct gls_nick_req req;
-		if (gls_nick_req_read(&req, player->sockfd)
-			== -1) {
-			log_warn(&g_log, "Unable to read nick "
-				"request");
-			return -1;
+		flub = gls_nick_req_read(&req, player->sockfd);
+		if (flub) {
+			return flub_append(flub, "unable to read nick request");
 		}
 
 		// Process nick request.
@@ -130,17 +127,16 @@ int server_player_data(struct server* server, struct player* player) {
 		strlcpy(reply.nick, req.nick,
 			PLAYER_NAME_LENGTH);
 		reply.accepted = 1;
-		if (gls_nick_reply_write(&reply, player->sockfd)
-			== -1) {
-			log_warn(&g_log, "Unable to write nick"
-				"reply");
-			return -1;
+		flub = gls_nick_reply_write(&reply, player->sockfd);
+		if (flub) {
+			return flub_append(flub, "unable to write nick reply");
 		}
 	}
-	return 0;
+	return NULL;
 }
 
-int server_run(struct server* server) {
+struct flub* server_run(struct server* server) {
+	struct flub* flub;
 	int i;
 	int j;
 
@@ -249,21 +245,24 @@ int server_run(struct server* server) {
 				}
 
 				// Handle player data.
-				if (server_player_data(server, player) == -1) {
+				flub = server_player_data(server, player);
+				if (flub) {
 					log_warn(&g_log, "Error handling "
-						"player data");
+						"player data: '%s'",
+						flub->message);
 					player_free(player);
 				}
 			}
 		} while (ret);
 	}
-	return 0;
+	return NULL;
 }
 
 /**
  * Runs the Glass Plate Game server.
  */
 int main(int argc, char* argv[]) {
+	struct flub* flub;
 	struct server server;
 
 	// Open log file.
@@ -284,15 +283,18 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Setup server.
-	if (server_init(&server) == -1) {
-		log_error(&g_log, "Initializing server");
+	flub = server_init(&server);
+	if (flub) {
+		log_error(&g_log, "Unable to initialize server: '%s'",
+			flub->message);
 		exit(EXIT_FAILURE);
 	}
 
 	// Run the server.
 	log_info(&g_log, "Running server");
-	if (server_run(&server) == -1) {
-		log_error(&g_log, "Running server");
+	flub = server_run(&server);
+	if (flub) {
+		log_error(&g_log, "Error running server: '%s'", flub->message);
 		exit(EXIT_FAILURE);
 	}
 

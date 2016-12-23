@@ -45,16 +45,16 @@ void board_init(struct board* board);
 /**
  * Pretty-print the board to the specified file descriptor.
  */
-int board_print(struct board* board, int fd);
+struct flub* board_print(struct board* board, int fd);
 
 /**
  * Read the board from the specified file.
  */
-int board_read(struct board* board, int fd);
+struct flub* board_read(struct board* board, int fd);
 
 /**
  * Write the board to the specified file.
  */
-int board_write(struct board* board, int fd);
+struct flub* board_write(struct board* board, int fd);
 
 #endif // board_H

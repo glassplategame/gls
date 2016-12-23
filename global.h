@@ -22,8 +22,11 @@
 
 #include <errno.h>
 
+#include "flub.h"
 #include "log.h"
 
+// Global flub
+struct flub g_flub;
 // Global logger.
 struct log g_log;
 
@@ -43,6 +46,13 @@ G_LOG_DECLARATION(debug)
 G_LOG_DECLARATION(info)
 G_LOG_DECLARATION(warn)
 G_LOG_DECLARATION(error)
+
+/**
+ * Returns a pointer to a statically-allocated flub instantiated with the
+ * current call stack and the specified error message.  Not thread-safe.
+ */
+struct flub* g_flub_toss(char* format, ...)
+	__attribute__((format(printf, 1, 2)));
 
 /**
  * Concates the user-defined message and the current system error message (as

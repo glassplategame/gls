@@ -101,7 +101,7 @@ void board_init(struct board* board) {
 	strncpy(board->plates[4][5].abbrev, "Anp", PLATE_ABBREV_LENGTH);
 }
 
-int board_print(struct board* board, int fd) {
+struct flub* board_print(struct board* board, int fd) {
 	int offset;
 	char* buffer;
 	const int height = 25;
@@ -113,8 +113,7 @@ int board_print(struct board* board, int fd) {
 	// Allocate buffer for writing board.
 	buffer = malloc(width * height);
 	if (!buffer) {
-		log_error(&g_log, "Allocating board print buffer");
-		return -1;
+		return g_flub_toss("Allocating board print buffer");
 	}
 
 	// Write column headers.
@@ -171,7 +170,7 @@ int board_print(struct board* board, int fd) {
 	free(buffer);
 
 	// Return success.
-	return 0;
+	return NULL;
 }
 
 static size_t board_print_border(struct board* board, char* buffer) {
@@ -194,36 +193,42 @@ static size_t board_print_border(struct board* board, char* buffer) {
 	return i;
 }
 
-int board_read(struct board* board, int fd) {
+struct flub* board_read(struct board* board, int fd) {
+	struct flub* flub;
 	int i;
 	int j;
 
 	// Read each plate.
 	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
 		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
-			if (plate_read(&board->plates[i][j], fd) == -1) {
-				return -1;
+			flub = plate_read(&board->plates[i][j], fd);
+			if (flub) {
+				return flub_append(flub, "error reading plate "
+					"(%i, %i)", i, j);
 			}
 		}
 	}
 
 	// Return success.
-	return 0;
+	return NULL;
 }
 
-int board_write(struct board* board, int fd) {
+struct flub* board_write(struct board* board, int fd) {
+	struct flub* flub;
 	int i;
 	int j;
 
 	// Write each plate.
 	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
 		for (j = 0; j < BOARD_PLATE_ROW_COUNT; j++) {
-			if (plate_write(&board->plates[i][j], fd) == -1) {
-				return -1;
+			flub = plate_write(&board->plates[i][j], fd);
+			if (flub) {
+				return flub_append(flub, "Error writing plate "
+					"(%i, %i)", i, j);
 			}
 		}
 	}
 
 	// Return success;
-	return 0;
+	return NULL;
 }

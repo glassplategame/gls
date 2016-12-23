@@ -41,6 +41,6 @@ struct client {
 	int sockfd;
 };
 
-int client_nickname_write(struct client* client, char* nickname);
+struct flub* client_nickname_write(struct client* client, char* nickname);
 
 #endif // client_H

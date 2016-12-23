@@ -44,16 +44,16 @@ struct plate {
 /**
  * Pretty-prints the plate to the specified file.
  */
-int plate_print(struct plate* plate, int fd);
+struct flub* plate_print(struct plate* plate, int fd);
 
 /**
  * Read the plate from the specified file.
  */
-int plate_read(struct plate* plate, int fd);
+struct flub* plate_read(struct plate* plate, int fd);
 
 /**
  * Write the plate to the specified file.
  */
-int plate_write(struct plate* plate, int fd);
+struct flub* plate_write(struct plate* plate, int fd);
 
 #endif // plate_H

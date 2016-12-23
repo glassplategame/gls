@@ -16,11 +16,11 @@ CC = gcc
 CFLAGS = -Wall -Werror --pedantic-errors -rdynamic --std=c99
 LIBS = -lbsd
 
-client_files = board global gls log client plate
+client_files = board flub global gls log client plate
 client_objs=${client_files:=.o}
-server_files = board global gls log plate player server
+server_files = board flub global gls log plate player server
 server_objs=${server_files:=.o}
-files=board client global gls log plate player server
+files=board client flub global gls log plate player server
 objs=${files:=.o}
 
 # Default rule: compile only the client.

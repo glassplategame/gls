@@ -22,7 +22,8 @@
 
 #include "client.h"
 
-int client_nickname_write(struct client* client, char* nickname) {
+struct flub* client_nickname_write(struct client* client, char* nickname) {
+	struct flub* flub;
 	struct gls_header header;
 	struct gls_nick_reply reply;
 	struct gls_nick_req req;
@@ -30,48 +31,40 @@ int client_nickname_write(struct client* client, char* nickname) {
 	// Write nickname to server.
 	memset(&req, 0, sizeof(struct gls_nick_req));
 	strlcpy(req.nick, nickname, PLAYER_NAME_LENGTH);
-	if (gls_nick_req_write(&req, client->sockfd) == -1) {
-		log_error(&g_log, "Unable to write nickname");
-		return -1;
+	flub = gls_nick_req_write(&req, client->sockfd);
+	if (flub) {
+		return flub_append(flub, "unable to write nickname");
 	} else {
-		char buffer[256];
-		snprintf(buffer, sizeof(buffer), "Nickname '%s' "
-			"requested", nickname);
-		log_info(&g_log, buffer);
+		g_log_info("Nickname '%s' requested.", nickname);
 	}
 
 	// Read nickname from server.
-	if (gls_header_read(&header, client->sockfd) == -1) {
+	flub = gls_header_read(&header, client->sockfd);
+	if (flub) {
 		// Unable to read header.
-		log_error(&g_log, "Unable to read gls header");
-		return -1;
+		return flub_append(flub, "unable to read gls header");
 	}
 	if (header.event != GLS_EVENT_NICK_REPLY) {
 		// Unexpected event.
-		char buffer[256];
-		snprintf(buffer, sizeof(buffer), "Unexpected event: '%x'",
-			header.event);
-		log_error(&g_log, buffer);
-		return -1;
+		return g_flub_toss("Unexpected event: '%x'", header.event);
 	}
-	if (gls_nick_reply_read(&reply, client->sockfd) == -1) {
-		log_error(&g_log, "Unable to get nick reply");
-		return -1;
+	flub = gls_nick_reply_read(&reply, client->sockfd);
+	if (flub) {
+		return flub_append(flub, "unable to get nick reply");
 	}
 	if (!reply.accepted) {
 		// Nickname rejected.
-		log_error(&g_log, "Nickname rejected");
-		return -1;
+		return g_flub_toss("Nickname rejected");
 	} else {
 		// Nickname accepted.
-		log_info(&g_log, "Nickname accepted");
-		return 0;
+		return NULL;
 	}
 }
 
 int main(int argc, char* argv[]) {
 	struct client client;
 	int done;
+	struct flub* flub;
 	struct gls_protover pver;
 	struct gls_protoverack pack;
 	struct sockaddr_in sockaddr_in;
@@ -106,12 +99,16 @@ int main(int argc, char* argv[]) {
 	strlcpy(pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
 	strlcpy(pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
 	strlcpy(pver.software, "gls", GLS_PROTOVER_SOFTWARE_LENGTH);
-	if (gls_protover_write(&pver, client.sockfd) == -1) {
-		fprintf(stderr, "Unable to write protover\n");
+	flub = gls_protover_write(&pver, client.sockfd);
+	if (flub) {
+		fprintf(stderr, "Unable to write protover: '%s'\n",
+			flub->message);
 		exit(EXIT_FAILURE);
 	}
-	if (gls_protoverack_read(&pack, client.sockfd) == -1) {
-		fprintf(stderr, "Unable to read protover ack\n");
+	flub = gls_protoverack_read(&pack, client.sockfd);
+	if (flub) {
+		fprintf(stderr, "Unable to read protover ack: '%s'\n",
+			flub->message);
 		exit(EXIT_FAILURE);
 	}
 	if (!pack.ack) {
@@ -121,9 +118,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Set nickname.
-	if (client_nickname_write(&client, "knecht") == -1) {
-		fprintf(stderr, "Nickname set failed\n");
-		exit(EXIT_FAILURE);
+	flub = client_nickname_write(&client, "knecht");
+	if (flub) {
+		fprintf(stderr, "Nickname set failed: '%s'\n",
+			flub->message);
+	} else {
+		fprintf(stderr, "Nickname accepted.\n");
 	}
 
 	// Play the game (main loop).
