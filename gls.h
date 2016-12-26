@@ -148,4 +148,32 @@ struct flub* gls_protoverack_read(struct gls_protoverack* pack, int fd);
  */
 struct flub* gls_protoverack_write(struct gls_protoverack* pack, int fd);
 
+/**
+ * Re-attempts partial reads.
+ *
+ * Returns the number of bytes read, or -1 on error.
+ */
+ssize_t gls_readn(int fd, void* buffer, size_t count);
+
+/**
+ * Re-attempts partial reads.
+ *
+ * Returns the number of bytes read, or -1 on error.
+ */
+ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt);
+
+/**
+ * Re-attempts partial writes.
+ *
+ * Returns the number of bytes written, or -1 on error.
+ */
+ssize_t gls_writen(int fd, void* buffer, size_t count);
+
+/**
+ * Re-attempts partial writes.
+ *
+ * Returns the number of bytes written, or -1 on error.
+ */
+ssize_t gls_writevn(int fd, struct iovec* iov, int iovcnt);
+
 #endif // gls_H

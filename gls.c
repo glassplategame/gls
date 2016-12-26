@@ -2,6 +2,65 @@
 
 static char gls_buffer[65536];
 
+// Static functions.
+ssize_t gls_rdwrn(int fd, void* buffer, size_t count,
+	ssize_t(*rdwr)(int fd, void* buffer, size_t count)) {
+	char* buf;
+	ssize_t i;
+	int ret;
+
+	// Read in 'n' bytes.
+	buf = (char*)buffer;
+	for (i = 0; i < count; ) {
+		ret = rdwr(fd, buf, count);
+		if (ret == -1) {
+			// Read error.
+			return -1;
+		} else if (!ret) {
+			// EOF.
+			return i;
+		}
+		i += ret;
+		buf += ret;
+		count -= ret;
+	}
+	return i;
+}
+
+static ssize_t gls_rdwrvn(int fd, struct iovec* iov, int iovcnt,
+	ssize_t(*rdwrv)(int fd, const struct iovec* iov, int iovcnt)) {
+	int cnt;
+	int ret;
+
+	// Read in 'n' bytes.
+	cnt = 0;
+	do {
+		// Actual read.
+		ret = rdwrv(fd, iov, iovcnt);
+		if (ret == -1) {
+			// Error.
+			return -1;
+		} else if (!ret) {
+			// EOF.
+			return cnt;
+		}
+		cnt += ret;
+
+		// Update iovs.
+		while (iovcnt && iov[0].iov_len <= ret) {
+			ret -= iov[0].iov_len;
+			iov++;
+			iovcnt--;
+		}
+		if (ret) {
+			iov[0].iov_len -= ret;
+		}
+	} while (iovcnt);
+	return cnt;
+}
+
+
+// Library functions.
 void gls_header_marshal(char* buffer, uint32_t event) {
 	uint32_t tmp;
 
@@ -12,7 +71,8 @@ void gls_header_marshal(char* buffer, uint32_t event) {
 
 struct flub* gls_header_read(struct gls_header* header, int fd) {
 	// Read header.
-	if (read(fd, &header->event, sizeof(uint32_t)) < sizeof(uint32_t)) {
+	if (gls_readn(fd, &header->event, sizeof(uint32_t)) <
+		sizeof(uint32_t)) {
 		// Failed/partial read.
 		return g_flub_toss(g_serror("Unable to read header"));
 	}
@@ -29,7 +89,7 @@ struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd) {
 	iovs[0].iov_len = PLAYER_NAME_LENGTH;
 	iovs[1].iov_base = &reply->accepted;
 	iovs[1].iov_len = sizeof(uint16_t);
-	if (readv(fd, iovs, 2) < PLAYER_NAME_LENGTH + sizeof(uint16_t)) {
+	if (gls_readvn(fd, iovs, 2) < PLAYER_NAME_LENGTH + sizeof(uint16_t)) {
 		return g_flub_toss(g_serror("Unable to read nick reply"));
 	}
 	reply->accepted = ntohs(reply->accepted);
@@ -56,7 +116,7 @@ struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd) {
 	len += sizeof(uint16_t);
 
 	// Write packet.
-	if (write(fd, gls_buffer, len) < len) {
+	if (gls_writen(fd, gls_buffer, len) < len) {
 		return g_flub_toss(g_serror("Unable to write nick reply"));
 	}
 	return NULL;
@@ -68,7 +128,7 @@ struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd) {
 
 	// Read nick request.
 	memset(req, 0, sizeof(struct gls_nick_req));
-	if (read(fd, req->nick, size) < size) {
+	if (gls_readn(fd, req->nick, size) < size) {
 		return g_flub_toss(g_serror("Unable to read nick request"));
 	}
 
@@ -96,8 +156,7 @@ struct flub* gls_nick_req_write(struct gls_nick_req* req, int fd) {
 	len += sizeof(req->nick);
 
 	// Write packet.
-	// TODO: Need writen.
-	if (write(fd, gls_buffer, len) < len) {
+	if (gls_writen(fd, gls_buffer, len) < len) {
 		return g_flub_toss(g_serror("Unable to write nick request"));
 	}
 	return NULL;
@@ -118,7 +177,7 @@ struct flub* gls_protover_read(struct gls_protover* pver, int fd) {
 	iovs[2].iov_len = GLS_PROTOVER_SOFTWARE_LENGTH;
 	len = GLS_PROTOVER_MAGIC_LENGTH + GLS_PROTOVER_VERSION_LENGTH +
 		GLS_PROTOVER_SOFTWARE_LENGTH;
-	if (readv(fd, iovs, 3) < len) {
+	if (gls_readvn(fd, iovs, 3) < len) {
 		return g_flub_toss(g_serror("Unable to read protover"));
 	}
 	pver->magic[GLS_PROTOVER_MAGIC_LENGTH - 1] = '\0';
@@ -159,7 +218,7 @@ struct flub* gls_protover_write(struct gls_protover* pver, int fd) {
 	len += GLS_PROTOVER_SOFTWARE_LENGTH;
 
 	// Write packet.
-	if (write(fd, gls_buffer, len) < len) {
+	if (gls_writen(fd, gls_buffer, len) < len) {
 		return g_flub_toss("Unable to write full protover");
 	}
 	return NULL;
@@ -177,7 +236,7 @@ struct flub* gls_protoverack_read(struct gls_protoverack* pack, int fd) {
 	len = iovs[0].iov_len = sizeof(uint16_t);
 	iovs[1].iov_base = &pack->reason;
 	len += iovs[1].iov_len = GLS_PROTOVER_REASON_LENGTH;
-	if (readv(fd, iovs, 2) < len) {
+	if (gls_readvn(fd, iovs, 2) < len) {
 		return g_flub_toss(g_serror("Unable to read ack header"));
 	}
 	pack->ack = ntohs(pack->ack);
@@ -213,7 +272,7 @@ struct flub* gls_protoverack_write(struct gls_protoverack* pack, int fd) {
 	cur += GLS_PROTOVER_REASON_LENGTH;
 
 	// Write packet.
-	if (write(fd, gls_buffer, len) < len) {
+	if (gls_writen(fd, gls_buffer, len) < len) {
 		return g_flub_toss(g_serror("Unable to write protoverack pt1"));
 	}
 	flub = gls_protover_write(&pack->pver, fd);
@@ -221,4 +280,21 @@ struct flub* gls_protoverack_write(struct gls_protoverack* pack, int fd) {
 		return flub_append(flub, "unable to write protoverack pt2");
 	}
 	return NULL;
+}
+
+ssize_t gls_readn(int fd, void* buffer, size_t count) {
+	return gls_rdwrn(fd, buffer, count, read);
+}
+
+ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt) {
+	return gls_rdwrvn(fd, iov, iovcnt, readv);
+}
+
+ssize_t gls_writen(int fd, void* buffer, size_t count) {
+	return gls_rdwrn(fd, buffer, count,
+		(ssize_t(*)(int, void*, size_t))write);
+}
+
+ssize_t gls_writevn(int fd, struct iovec* iov, int iovcnt) {
+	return gls_rdwrvn(fd, iov, iovcnt, writev);
 }
