@@ -113,7 +113,7 @@ struct flub* board_print(struct board* board, int fd) {
 	// Allocate buffer for writing board.
 	buffer = malloc(width * height);
 	if (!buffer) {
-		return g_flub_toss("Allocating board print buffer");
+		return g_flub_toss("Unable to allocate board print buffer");
 	}
 
 	// Write column headers.
@@ -163,7 +163,7 @@ struct flub* board_print(struct board* board, int fd) {
 
 	// Write board to file.
 	if (write(fd, buffer, strlen(buffer)) == -1) {
-		log_error(&g_log, g_serror("Printing board"));
+		g_flub_toss("Unable to write board: '%s'", g_serr(errno));
 	}
 
 	// Free buffer.

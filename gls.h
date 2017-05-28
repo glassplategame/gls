@@ -26,7 +26,14 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include "player.h"
+#include "global.h"
+
+// Length of each thread's buffer.
+#define GLS_BUFFER_SIZE 65536
+// Length of a player's name.
+#define GLS_NAME_LENGTH 32
+// Lower-limit on pipe atomicity.
+#define GLS_PIPE_BUF 4096
 
 /**
  * Structure that represents an event in the Glass Plate Game.
@@ -41,7 +48,7 @@ struct gls_header {
  */
 struct gls_nick_req {
 	// Nickname requested.
-	char nick[PLAYER_NAME_LENGTH];
+	char nick[GLS_NAME_LENGTH];
 };
 
 /**
@@ -49,7 +56,7 @@ struct gls_nick_req {
  */
 struct gls_nick_reply {
 	// Nickname requested.
-	char nick[PLAYER_NAME_LENGTH];
+	char nick[GLS_NAME_LENGTH];
 	// Non-zero if nickname accepted.
 	uint16_t accepted;
 };
@@ -73,10 +80,22 @@ struct gls_protoverack {
 	struct gls_protover pver;
 };
 
-// Events.
-// Nickname request.
-#define GLS_EVENT_NICK_REQ 0x00000001
-#define GLS_EVENT_NICK_REPLY 0x00000002
+// Packet headers.
+#define GLS_EVENT_PROTOVER		0x00000001
+#define GLS_EVENT_PROTOVERACK		0x00000002
+#define GLS_EVENT_NICK_REQ		0x00000003
+#define GLS_EVENT_NICK_REPLY		0x00000004
+
+// Union of all packets.
+struct gls_packet {
+	struct gls_header header;
+	union {
+		struct gls_nick_req nick_req;
+		struct gls_nick_reply nick_reply;
+		struct gls_protover protover;
+		struct gls_protoverack protoverack;
+	} data;
+};
 
 /**
  * Marshalls the speccified gls header data into the specified buffer.
@@ -85,66 +104,76 @@ void gls_header_marshal(char* buffer, uint32_t event);
 
 /**
  * Reads gls protocol data from the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
 struct flub* gls_header_read(struct gls_header* header, int fd);
 
 /**
- * Read the nick reply from the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
+ * Initialize the buffer for the gls protocol.
  */
-struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd);
+struct flub* gls_init();
+
+/**
+ * Destructor function for the pthread-specific gls buffer.
+ */
+void gls_init_destructor(void* buffer);
+
+/**
+ * Private key-initialization function.
+ */
+void gls_init_once();
+
+/**
+ * Read the nick reply from the specified file descriptor.
+ */
+struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd,
+	int validate);
 
 /**
  * Write the nick reply to the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
 struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd);
 
 /**
  * Read the nick request from the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
-struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd);
+struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate);
 
 /**
  * Write the nick request to the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
 struct flub* gls_nick_req_write(struct gls_nick_req* req, int fd);
 
 /**
- * Read the protocol version information from the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
+ * Reads an arbitrary packet from the specified file descriptor.
  */
-struct flub* gls_protover_read(struct gls_protover* pver, int fd);
+struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate);
+
+/**
+ * Writes the specified packet to the specified file descriptor.
+ */
+struct flub* gls_packet_write(struct gls_packet* packet, int fd);
+
+/**
+ * Read the protocol version information from the specified file descriptor.
+ */
+struct flub* gls_protover_read(struct gls_protover* pver, int fd,
+	int validate);
 
 /**
  * Write the protocol version information to the specified file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
 struct flub* gls_protover_write(struct gls_protover* pver, int fd);
 
 /**
  * Read the protocol version information ackowledgement from the specified
  * file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
-struct flub* gls_protoverack_read(struct gls_protoverack* pack, int fd);
+struct flub* gls_protoverack_read(struct gls_protoverack* pack, int fd,
+	int validate);
 
 /**
  * Write the protocol version information acknowledgement to the specified
  * file descriptor.
- *
- * Returns 0 on success, -1 on error.
  */
 struct flub* gls_protoverack_write(struct gls_protoverack* pack, int fd);
 

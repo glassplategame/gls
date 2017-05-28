@@ -22,24 +22,117 @@ G_LOG_DEFINITION(info)
 G_LOG_DEFINITION(warn)
 G_LOG_DEFINITION(error)
 
-struct flub* g_flub_toss(char* format, ...) {
-	va_list ap;
-
-	// Initialize global flub.
-	va_start(ap, format);
-	flub_tossv(&g_flub, format, ap);
-	va_end(ap);
-
-	// Return global flub.
-	return (&g_flub);
+void g_flub_destructor(void* flub) {
+	free(flub);
 }
 
-char* g_serror(char* message) {
-	static char buffer[256];
+int g_flub_init() {
+	struct flub* flub;
+	int ret;
 
-	// Concatenate messages.
-	snprintf(buffer, sizeof(buffer), "%s: %s", message, strerror(errno));
+	// Create thread-specific flub.
+	flub = (struct flub*)pthread_getspecific(g_flub_key);
+	if (flub) {
+		// Already exists.
+		return 0;
+	}
+	flub = (struct flub*)malloc(sizeof(struct flub));
+	if (!flub) {
+		return errno;
+	}
+	ret = pthread_setspecific(g_flub_key, (const void*)flub);
+	if (ret) {
+		return ret;
+	}
+	return 0;
+}
 
-	// Return concatenation.
-	return buffer;
+struct flub* g_flub_toss(char* format, ...) {
+	va_list ap;
+	struct flub* flub;
+
+	// Get the flub.
+	flub = pthread_getspecific(g_flub_key);
+	if (!flub) {
+		// Thread-specific flub not found.  This should never happen
+		// so long as 'g_flub_init' is called first.
+		g_log_error("Getting thread-specific flub *FAILED*, panicing!");
+		exit(EXIT_FAILURE);
+	}
+
+	// Initialize the flub.
+	va_start(ap, format);
+	flub_tossv(flub, format, ap);
+	va_end(ap);
+
+	// Return the flub.
+	return (flub);
+}
+
+char* g_serr(int err) {
+	char* buf;
+
+	// Get buffer.
+	buf = pthread_getspecific(g_serr_key);
+	if (!buf) {
+		return "THREAD-SPECIFIC BUFFER FAILURE";
+	}
+
+	// Return string.
+	return strerror_r(errno, buf, G_SERR_SIZE);
+}
+
+void g_serr_destructor(void* buffer) {
+	free(buffer);
+}
+
+int g_serr_init() {
+	char* buffer;
+	static int key_created = 0;
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	int ret;
+	int ugh;
+
+	// Initialize key.
+	ugh = 0;
+	ret = pthread_mutex_lock(&mutex);
+	if (ret) {
+		g_log_error("Unable to lock mutex: '%s'",
+			strerror(ret)); // Unsafe.
+		return -1;
+	}
+	if (!key_created) {
+		ugh = pthread_key_create(&g_serr_key, g_serr_destructor);
+		if (ugh) {
+			g_log_error("Unable to create key: '%s'",
+				strerror(ret)); // Unsafe.
+			goto unlock;
+		}
+		key_created = 1;
+	}
+unlock:
+	ret = pthread_mutex_unlock(&mutex);
+	if (ret) {
+		g_log_error("Mutex unlock failed: '%s'",
+			strerror(ret)); // Unsafe.
+	}
+	if (ugh || ret) {
+		return -1;
+	}
+
+	// Initialize buffer.
+	buffer = (char*)malloc(G_SERR_SIZE);
+	if (!buffer) {
+		g_log_error("Unable to allocate buffer");
+		return -1;
+	}
+
+	// Set buffer.
+	ret = pthread_setspecific(g_serr_key, buffer);
+	if (ret) {
+		g_log_error("Unable to set pthread buffer: '%s'",
+			strerror(ret)); // Unsafe.
+		return -1;
+	}
+	return 0;
 }

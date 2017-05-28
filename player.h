@@ -19,29 +19,55 @@
 #ifndef player_H
 #define player_H
 
-#include "global.h"
+#include "include.h"
 
-#define PLAYER_NAME_LENGTH 32
+#include <fcntl.h>
+#include <poll.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#include "global.h"
+#include "gls.h"
 
 struct player {
+	// Thread-specific flub.
+	struct flub flub;
 	// Player's nickname.
-	char name[PLAYER_NAME_LENGTH];
+	char name[GLS_NAME_LENGTH];
+	// Pipes going to and from the server.
+	int pipe_server_from[2];
+	int pipe_server_to[2];
 	// Player connection.
 	int sockfd;
+	// Thread identifier.
+	pthread_t thread;
 	// Authentication status.
 	unsigned authenticated:1;
 	// Connection open.
 	unsigned connected:1;
+	// Killed by server.
+	unsigned killed:1;
 };
 
 /**
  * Free possibly disconnected player.
  */
-void player_free(struct player* player);
+void player_free(struct player* player, struct flub* status);
 
 /**
  * Initialize newly-connected player.
  */
-void player_init(struct player* player, int fd);
+struct flub* player_init(struct player* player, int fd);
+
+/**
+ * Force player to prepare for player_free.
+ */
+struct flub* player_kill(struct player* player);
+
+/**
+ * Thread to buffer data in-between the raw socket and the server.
+ */
+void* player_thread(void* player);
 
 #endif // player_H

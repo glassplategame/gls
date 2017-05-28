@@ -32,7 +32,8 @@ struct flub* server_init(struct server* server) {
 	// Set up socket.
 	sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	if (sockfd == -1) {
-		return g_flub_toss(g_serror("Unable to create socket"));
+		return g_flub_toss("Unable to create socket: '%s'",
+			g_serr(errno));
 	}
 	server->sockfd = sockfd;
 	memset(&server->sockaddr_in, 0, sizeof(struct sockaddr_in));
@@ -41,10 +42,12 @@ struct flub* server_init(struct server* server) {
 	server->sockaddr_in.sin_addr.s_addr = INADDR_ANY;
 	if (bind(server->sockfd, (struct sockaddr*)&server->sockaddr_in,
 		sizeof(struct sockaddr_in)) == -1) {
-		return g_flub_toss(g_serror("Socket binding failed"));
+		return g_flub_toss("Socket binding failed: '%s'",
+			g_serr(errno));
 	}
 	if (listen(server->sockfd, 16) == -1) {
-		return g_flub_toss(g_serror("Socket listening failed"));
+		return g_flub_toss("Socket listening failed: '%s'",
+			g_serr(errno));
 	}
 
 	// Not running.
@@ -53,79 +56,75 @@ struct flub* server_init(struct server* server) {
 }
 
 struct flub* server_player_data(struct server* server, struct player* player) {
+	struct gls_packet packet_in;
+	struct gls_packet packet_out;
 	struct flub* flub;
+
+	// Get player's packet.
+	memset(&packet_in, 0, sizeof(struct gls_packet));
+	flub = gls_packet_read(&packet_in, player->pipe_server_to[0], 0);
+	if (flub) {
+		return flub;
+	}
 
 	// Handle client data.
 	if (!player->authenticated) { // Protocol version exchange.
 		char* protocol = "0.0";
-		struct gls_protover pver;
-		struct gls_protoverack pack;
+		struct gls_protover* pver;
+		struct gls_protoverack* pack;
 		int accepted;
 
-		// Read client protover.
-		memset(&pver, 0, sizeof(struct gls_protover));
-		flub = gls_protover_read(&pver, player->sockfd);
-		if (flub) {
-			return flub_append(flub, "unable to read protover");
-		}
-
 		// Validate client protover.
+		if (packet_in.header.event != GLS_EVENT_PROTOVER) {
+			return g_flub_toss("Expected protover event, got '%u'",
+				packet_in.header.event);
+		}
+		pver = &packet_in.data.protover;
 		accepted = 1;
-		if (strncmp(pver.version, protocol,
+		if (strncmp(pver->version, protocol,
 			GLS_PROTOVER_VERSION_LENGTH)) {
 			accepted = 0;
 		}
 
 		// Return protover ack.
-		memset(&pack, 0, sizeof(struct gls_protoverack));
-		pack.ack = accepted;
+		memset(&packet_out, 0, sizeof(struct gls_packet));
+		packet_out.header.event = GLS_EVENT_PROTOVERACK;
+		pack = &packet_out.data.protoverack;
+		pack->ack = accepted;
 		if (!accepted) {
-			snprintf(pack.reason, GLS_PROTOVER_REASON_LENGTH,
+			snprintf(pack->reason, GLS_PROTOVER_REASON_LENGTH,
 				"Invalid protocol version '%s' (expected '%s')",
-				pver.version, protocol);
+				pver->version, protocol);
 		}
-		strlcpy(pack.pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
-		strlcpy(pack.pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
-		strlcpy(pack.pver.software, "glsd",
+		strlcpy(pack->pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
+		strlcpy(pack->pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
+		strlcpy(pack->pver.software, "glsd",
 			GLS_PROTOVER_SOFTWARE_LENGTH);
-		flub = gls_protoverack_write(&pack, player->sockfd);
-		if (flub) {
-			return flub_append(flub, "unable to write protover "
-				"ack");
-		}
+		flub = gls_packet_write(&packet_out, player->sockfd);
 		if (!accepted) {
 			return g_flub_toss("Protcol version not accepted: %s",
-				pack.reason);
+				pack->reason);
 		}
 		log_info(&g_log, "Player authenticated");
 		player->authenticated = 1;
 	} else { // Client generated packet.
-		// Read player data.
-		struct gls_header header;
-		flub = gls_header_read(&header, player->sockfd);
-		if (flub) {
-			return flub_append(flub, "unable to read header");
-		}
-		if (header.event != GLS_EVENT_NICK_REQ) {
+		struct gls_nick_req* req;
+
+		// Read nick request.
+		if (packet_in.header.event != GLS_EVENT_NICK_REQ) {
 			// Unsupported event.
 			return g_flub_toss("Unsupported event type");
 		}
 
-		// Read nick request.
-		struct gls_nick_req req;
-		flub = gls_nick_req_read(&req, player->sockfd);
-		if (flub) {
-			return flub_append(flub, "unable to read nick request");
-		}
-
 		// Process nick request.
-		strlcpy(player->name, req.nick,
-			PLAYER_NAME_LENGTH);
+		req = &packet_in.data.nick_req;
+		strlcpy(player->name, req->nick,
+			GLS_NAME_LENGTH);
 
 		// Reply to client event.
 		struct gls_nick_reply reply;
-		strlcpy(reply.nick, req.nick,
-			PLAYER_NAME_LENGTH);
+		strlcpy(reply.nick, req->nick,
+			GLS_NAME_LENGTH);
 		reply.accepted = 1;
 		flub = gls_nick_reply_write(&reply, player->sockfd);
 		if (flub) {
@@ -152,13 +151,13 @@ struct flub* server_run(struct server* server) {
 		// Accept new connection.
 		connection = accept4(server->sockfd,
 			(struct sockaddr*)&server->sockaddr_in,
-			&socklen, SOCK_NONBLOCK);
+			&socklen, 0);
 		if (connection != -1) {
 			struct player* player;
 
 			// Find player slot.
 			player = NULL;
-			log_debug(&g_log, "New connection");
+			g_log_debug("New connection");
 			for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 				if (server->players[i].connected) {
 					// Player slot in use.
@@ -169,18 +168,23 @@ struct flub* server_run(struct server* server) {
 			if (!player) {
 				// No player slots available.
 				// TODO: Send protover ack with reason.
-				log_warn(&g_log, "No player slots available");
+				g_log_warn("No player slots available");
 				if (close(connection) == -1) {
-					g_serror("Closing connection");
+					g_log_warn("Closing connection: '%s'",
+						g_serr(errno));
 				}
 			} else {
 				// Initialize new player.
-				player_init(player, connection);
+				flub = player_init(player, connection);
+				if (flub) {
+					g_log_warn("Unable to initialize "
+						"player: '%s'", flub->message);
+				}
 			}
 		} else if (connection == -1 && errno != EWOULDBLOCK) {
 			// Connection error.
-			log_warn(&g_log,
-				g_serror("Accepting connection failed"));
+			g_log_warn("Accepting connection failed: '%s'",
+				g_serr(errno));
 		}
 
 		// Read player data.
@@ -194,7 +198,7 @@ struct flub* server_run(struct server* server) {
 					continue;
 				}
 				pollfds[pollfd_count].fd =
-					server->players[i].sockfd;
+					server->players[i].pipe_server_to[0];
 				pollfds[pollfd_count].events |= POLLIN;
 				pollfds[pollfd_count].events |= POLLRDHUP;
 				pollfd_count++;
@@ -203,8 +207,8 @@ struct flub* server_run(struct server* server) {
 			// Call poll.
 			ret = poll(pollfds, pollfd_count, 10);
 			if (ret == -1) {
-				log_error(&g_log, g_serror(
-					"Polling players fds"));
+				g_log_error("Unable to poll: '%s'",
+					g_serr(errno));
 				break;
 			}
 
@@ -216,8 +220,8 @@ struct flub* server_run(struct server* server) {
 				// Get player.
 				pollfd = &pollfds[i];
 				for (j = 0; j < SERVER_PLAYER_MAX; j++) {
-					if (server->players[j].sockfd ==
-						pollfd->fd) {
+					if (server->players[j].pipe_server_to[0]
+						== pollfd->fd) {
 						player = &server->players[j];
 					}
 				}
@@ -225,19 +229,23 @@ struct flub* server_run(struct server* server) {
 				// Check for player data.
 				if (pollfd->revents & POLLERR) {
 					// Error: disconnect player.
-					log_warn(&g_log, "Polling error");
-					player_free(player);
+					g_log_warn("Polling error");
+					player_kill(player);
 					continue;
 				} else if (pollfd->revents & POLLHUP ||
 					pollfd->revents & POLLRDHUP) {
-					// Player hangup.
-					log_info(&g_log, "Player hangup");
-					player_free(player);
+					// Player thread done.
+					g_log_info("Freeing player");
+					player_free(player, flub);
+					if (flub) {
+						g_log_warn("Player error: '%s'",
+							flub->message);
+					}
 					continue;
 				} else if (pollfd->revents & POLLNVAL) {
 					// Invalid request.
-					log_warn(&g_log, "Invalid poll request");
-					player_free(player);
+					g_log_warn("Invalid poll request");
+					player_kill(player);
 					continue;
 				} else if (!(pollfd->revents & POLLIN)) {
 					// No data from player.
@@ -250,7 +258,7 @@ struct flub* server_run(struct server* server) {
 					log_warn(&g_log, "Error handling "
 						"player data: '%s'",
 						flub->message);
-					player_free(player);
+					player_kill(player);
 				}
 			}
 		} while (ret);
@@ -264,6 +272,7 @@ struct flub* server_run(struct server* server) {
 int main(int argc, char* argv[]) {
 	struct flub* flub;
 	struct server server;
+	int ret;
 
 	// Open log file.
 	if (log_init(&g_log, "./glsd.log", LOG_DEBUG) == -1) {
@@ -272,13 +281,36 @@ int main(int argc, char* argv[]) {
 		g_log.fd = STDOUT_FILENO;
 	}
 
+	// Setup flub.
+	ret = g_serr_init();
+	if (ret) {
+		g_log_error("Unable to setup system error buffer");
+		exit(EXIT_FAILURE);
+	}
+	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
+	if (ret) {
+		g_log_error("Error creating flub key: '%s'", g_serr(ret));
+		exit(EXIT_FAILURE);
+	}
+	ret = g_flub_init();
+	if (ret) {
+		g_log_error("Unable to initialize flub: '%s'", g_serr(ret));
+		exit(EXIT_FAILURE);
+	}
+	flub = gls_init();
+	if (flub) {
+		g_log_error("Unable to initialize gls buffer: '%s'",
+			flub->message);
+		exit(EXIT_FAILURE);
+	}
+
 	// Ignore 'SIGPIPE' signals.
 	// Note that, according to the SIGNAL(2) man page dated 2014-08-19,
 	// this is one of the few portable uses of 'singal'; if this gets
 	// refactored in order to use a signal handler function, change to
 	// the 'sigaction' system call.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-		log_error(&g_log, g_serror("Unable to ignore SIGPIPE"));
+		g_log_error("Unable to ignore SIGPIPE: '%s'", g_serr(errno));
 		exit(EXIT_FAILURE);
 	}
 

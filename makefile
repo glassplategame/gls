@@ -14,7 +14,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 CC = gcc
 CFLAGS = -Wall -Werror --pedantic-errors -rdynamic --std=c99
-LIBS = -lbsd
+LIBS = -lbsd -lpthread
 
 client_files = board flub global gls log client plate
 client_objs=${client_files:=.o}

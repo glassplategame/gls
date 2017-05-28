@@ -30,7 +30,7 @@ struct flub* client_nickname_write(struct client* client, char* nickname) {
 
 	// Write nickname to server.
 	memset(&req, 0, sizeof(struct gls_nick_req));
-	strlcpy(req.nick, nickname, PLAYER_NAME_LENGTH);
+	strlcpy(req.nick, nickname, GLS_NAME_LENGTH);
 	flub = gls_nick_req_write(&req, client->sockfd);
 	if (flub) {
 		return flub_append(flub, "unable to write nickname");
@@ -48,7 +48,7 @@ struct flub* client_nickname_write(struct client* client, char* nickname) {
 		// Unexpected event.
 		return g_flub_toss("Unexpected event: '%x'", header.event);
 	}
-	flub = gls_nick_reply_read(&reply, client->sockfd);
+	flub = gls_nick_reply_read(&reply, client->sockfd, 1);
 	if (flub) {
 		return flub_append(flub, "unable to get nick reply");
 	}
@@ -65,15 +65,35 @@ int main(int argc, char* argv[]) {
 	struct client client;
 	int done;
 	struct flub* flub;
-	struct gls_protover pver;
-	struct gls_protoverack pack;
+	struct gls_packet packet;
 	struct sockaddr_in sockaddr_in;
+	int ret;
 
-	// Set up the logger.
+	// Set up the globals.
 	// FIXME: Don't bypass the proper init method.
 	g_log.fd = STDOUT_FILENO;
 	g_log.level = LOG_DEBUG;
 	g_log.header = 0;
+	if ((ret = g_serr_init())) {
+		g_log_error("Unable to create system error buffer");
+		exit(EXIT_FAILURE);
+	}
+	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
+	if (ret) {
+		g_log_error("Error creating flub key: '%s'", g_serr(ret));
+		exit(EXIT_FAILURE);
+	}
+	ret = g_flub_init();
+	if (ret) {
+		g_log_error("Unable to initialize flub: '%s'", g_serr(ret));
+		exit(EXIT_FAILURE);
+	}
+	flub = gls_init();
+	if (flub) {
+		g_log_error("Unable to initialize gls buffer: '%s'",
+			flub->message);
+		exit(EXIT_FAILURE);
+	}
 
 	// Set up socket.
 	memset(&client.board, 0, sizeof(struct board));
@@ -95,25 +115,32 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Exchange protocol versions.
-	memset(&pver, 0, sizeof(struct gls_protover));
-	strlcpy(pver.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
-	strlcpy(pver.version, "0.0", GLS_PROTOVER_VERSION_LENGTH);
-	strlcpy(pver.software, "gls", GLS_PROTOVER_SOFTWARE_LENGTH);
-	flub = gls_protover_write(&pver, client.sockfd);
+	memset(&packet, 0, sizeof(struct gls_packet));
+	packet.header.event = GLS_EVENT_PROTOVER;
+	strlcpy(packet.data.protover.magic, "GLS", GLS_PROTOVER_MAGIC_LENGTH);
+	strlcpy(packet.data.protover.version, "0.0",
+		GLS_PROTOVER_VERSION_LENGTH);
+	strlcpy(packet.data.protover.software, "gls",
+		GLS_PROTOVER_SOFTWARE_LENGTH);
+	flub = gls_packet_write(&packet, client.sockfd);
 	if (flub) {
 		fprintf(stderr, "Unable to write protover: '%s'\n",
 			flub->message);
 		exit(EXIT_FAILURE);
 	}
-	flub = gls_protoverack_read(&pack, client.sockfd);
+	flub = gls_packet_read(&packet, client.sockfd, 1);
 	if (flub) {
 		fprintf(stderr, "Unable to read protover ack: '%s'\n",
 			flub->message);
 		exit(EXIT_FAILURE);
+	} else if (packet.header.event != GLS_EVENT_PROTOVERACK) {
+		fprintf(stderr, "Expected protover ack ('%u'), got '%u'\n",
+			GLS_EVENT_PROTOVERACK, packet.header.event);
+		exit(EXIT_FAILURE);
 	}
-	if (!pack.ack) {
+	if (!packet.data.protoverack.ack) {
 		fprintf(stderr, "Server refused connection: '%s'\n",
-			pack.reason);
+			packet.data.protoverack.reason);
 		exit(EXIT_FAILURE);
 	}
 
@@ -136,7 +163,8 @@ int main(int argc, char* argv[]) {
 		// Issue command prompt.
 		if (write(STDOUT_FILENO, prompt, sizeof(prompt)) <
 			sizeof(prompt)) {
-			log_error(&g_log, g_serror("Writing prompt"));
+			g_log_error("Unable to write prompt: '%s'",
+				g_serr(errno));
 		}
 
 		// Get command from user.
@@ -144,14 +172,16 @@ int main(int argc, char* argv[]) {
 		read_count = read(STDIN_FILENO, command, sizeof(command));
 		if (read_count == -1) {
 			// Read error.
-			log_error(&g_log, g_serror("Getting command"));
+			g_log_error("Unable to get command: '%s'",
+				g_serr(errno));
 			done = 1;
 			break;
 		} else if (!read_count) {
 			// EOF.
 			done = 1;
 			if (write(STDOUT_FILENO, "\n", 1) < 1) {
-				log_warn(&g_log, g_serror("Clean-quit on EOF"));
+				g_log_warn("No clean-quit on EOF: '%s'",
+					g_serr(errno));
 			}
 			continue;
 		} else if (read_count == sizeof(command)) {

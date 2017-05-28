@@ -58,7 +58,7 @@ struct flub* plate_print(struct plate* plate, int fd) {
 
 	// Write buffer to file.
 	if (write(fd, buffer, strlen(buffer)) == -1) {
-		log_error(&g_log, g_serror("Printing plate buffer"));
+		g_log_error("Printing plate buffer: '%s'", g_serr(errno));
 	}
 
 	// Free buffer.
@@ -78,10 +78,11 @@ struct flub* plate_read(struct plate* plate, int fd) {
 		return g_flub_toss("Unable to allocate plate buffer");
 	}
 
-	// Write the buffer to the file.
+	// Read the buffer.
 	if (read(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
 		free(buffer);
-		return g_flub_toss(g_serror("Reading plate buffer"));
+		return g_flub_toss("Unable to read plate buffer: '%s'",
+			g_serr(errno));
 	}
 
 	// Read data from the buffer.
@@ -127,7 +128,8 @@ struct flub* plate_write(struct plate* plate, int fd) {
 	// Write the buffer to the file.
 	if (write(fd, buffer, PLATE_SIZE_PACKED) < PLATE_SIZE_PACKED) {
 		free(buffer);
-		return g_flub_toss(g_serror("Writing plate buffer"));
+		return g_flub_toss("Unable to write plate buffer: '%s'",
+			g_serr(errno));
 	}
 
 	// Free the buffer from memory.
