@@ -136,41 +136,47 @@ void gls_init_destructor(void* buffer) {
 	free(buffer);
 }
 
-struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd,
+struct flub* gls_nick_set_read(struct gls_nick_set* set, int fd,
 	int validate) {
+	struct flub* flub;
 	int i;
 	struct iovec iovs[2];
+	ssize_t len;
 
-	// Read nick reply.
-	memset(reply, 0, sizeof(struct gls_nick_reply));
-	iovs[0].iov_base = &reply->nick;
-	iovs[0].iov_len = GLS_NAME_LENGTH;
-	iovs[1].iov_base = &reply->accepted;
-	iovs[1].iov_len = sizeof(uint16_t);
-	if (gls_readvn(fd, iovs, 2) < GLS_NAME_LENGTH + sizeof(uint16_t)) {
-		return g_flub_toss("Unable to read nick reply: '%s'",
+	// Read nick set.
+	memset(set, 0, sizeof(struct gls_nick_set));
+	len = 0;
+	iovs[0].iov_base = &set->nick;
+	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	iovs[1].iov_base = &set->reason;
+	len += iovs[1].iov_len = GLS_NICK_SET_REASON;
+	if (gls_readvn(fd, iovs, 2) < len) {
+		return g_flub_toss("Unable to read nick set: '%s'",
 			g_serr(errno));
 	}
-	reply->accepted = ntohs(reply->accepted);
 
-	// Validate nick reply.
+	// Validate nick set.
 	if (!validate) {
 		return NULL;
 	}
-	for (i = 0; i < GLS_NAME_LENGTH - 1; i++) {
-		if ((!isalnum(reply->nick[i])) && (reply->nick[i] != '\0')) {
-			return g_flub_toss("Invalid character in nick");
+	flub = gls_nick_validate(set->nick, 1);
+	if (flub) {
+		return flub_append(flub, "reading nick set request");
+	}
+	for (i = 0; i < GLS_NICK_SET_REASON - 1; i++) {
+		if ((!isprint(set->reason[i])) && (set->reason[i] != '\0')) {
+			return g_flub_toss("Invalid character in nick set "
+				"failure reason");
 		}
 	}
-	reply->nick[i] = '\0';
+	set->reason[GLS_NICK_SET_REASON - 1] = '\0';
 	return NULL;
 }
 
-struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd) {
+struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd) {
 	char* buf;
 	char* cur;
 	int32_t len;
-	uint16_t tmp;
 
 	// Get buffer.
 	buf = pthread_getspecific(gls_key);
@@ -180,29 +186,28 @@ struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd) {
 
 	// Prepare header.
 	cur = buf;
-	gls_header_marshal(cur, GLS_EVENT_NICK_REPLY);
+	gls_header_marshal(cur, GLS_EVENT_NICK_SET);
 	cur += 4;
 	len = 4;
 
-	// Prepare nick reply.
-	memcpy(cur, reply->nick, GLS_NAME_LENGTH);
+	// Prepare nick set.
+	memcpy(cur, set->nick, GLS_NAME_LENGTH);
 	cur += GLS_NAME_LENGTH;
 	len += GLS_NAME_LENGTH;
-	tmp = htons(reply->accepted);
-	memcpy(cur, &tmp, sizeof(uint16_t));
-	cur += sizeof(uint16_t);
-	len += sizeof(uint16_t);
+	memcpy(cur, set->reason, GLS_NICK_SET_REASON);
+	cur += GLS_NICK_SET_REASON;
+	len += GLS_NICK_SET_REASON;
 
 	// Write packet.
 	if (gls_writen(fd, buf, len) < len) {
-		return g_flub_toss("Unable to write nick reply: '%s'",
+		return g_flub_toss("Unable to write nick set: '%s'",
 			g_serr(errno));
 	}
 	return NULL;
 }
 
 struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate) {
-	int i;
+	struct flub* flub;
 	ssize_t size = sizeof(req->nick);
 
 	// Read nick request.
@@ -216,12 +221,9 @@ struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate) {
 	if (!validate) {
 		return NULL;
 	}
-	for (i = 0; i < GLS_NAME_LENGTH - 1; i++) {
-		if ((!isalnum(req->nick[i])) && (req->nick[i] != '\0')) {
-			return g_flub_toss("Invalid character in nick");
-		}
+	if ((flub = gls_nick_validate(req->nick, 0))) {
+		return flub_append(flub, "reading nick request");
 	}
-	req->nick[i] = '\0';
 	return NULL;
 }
 
@@ -254,6 +256,29 @@ struct flub* gls_nick_req_write(struct gls_nick_req* req, int fd) {
 	return NULL;
 }
 
+struct flub* gls_nick_validate(char* nick, int empty) {
+	int i;
+
+	// Validate nick characters.
+	for (i = 0; i < GLS_NAME_LENGTH; i++) {
+		if (nick[i] == '\0') {
+			break;
+		}
+		if (!isalnum(nick[i])) {
+			return g_flub_toss("Invalid character in nick at "
+				"index '%i'", i);
+		}
+	}
+	if (i == GLS_NAME_LENGTH) {
+		return g_flub_toss("Nick exceeded '%i' characters",
+			GLS_NAME_LENGTH - 1);
+	}
+	if (!empty && !strlen(nick)) {
+		return g_flub_toss("Empty nick");
+	}
+	return NULL;
+}
+
 struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 	struct flub* flub;
 
@@ -276,8 +301,8 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 	case GLS_EVENT_NICK_REQ:
 		flub = gls_nick_req_read(&packet->data.nick_req, fd, validate);
 		break;
-	case GLS_EVENT_NICK_REPLY:
-		flub = gls_nick_reply_read(&packet->data.nick_reply, fd,
+	case GLS_EVENT_NICK_SET:
+		flub = gls_nick_set_read(&packet->data.nick_set, fd,
 			validate);
 		break;
 	default:
@@ -305,8 +330,8 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 	case GLS_EVENT_NICK_REQ:
 		flub = gls_nick_req_write(&packet->data.nick_req, fd);
 		break;
-	case GLS_EVENT_NICK_REPLY:
-		flub = gls_nick_reply_write(&packet->data.nick_reply, fd);
+	case GLS_EVENT_NICK_SET:
+		flub = gls_nick_set_write(&packet->data.nick_set, fd);
 		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",

@@ -16,7 +16,7 @@ CC = gcc
 CFLAGS = -Wall -Werror --pedantic-errors -rdynamic --std=c99
 LIBS = -lbsd -lpthread
 
-client_files = board flub global gls log client plate
+client_files = board cargs flub global gls log client plate
 client_objs=${client_files:=.o}
 server_files = board flub global gls log plate player server
 server_objs=${server_files:=.o}

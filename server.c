@@ -108,7 +108,9 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		log_info(&g_log, "Player authenticated");
 		player->authenticated = 1;
 	} else { // Client generated packet.
+		int i;
 		struct gls_nick_req* req;
+		struct gls_nick_set set;
 
 		// Read nick request.
 		if (packet_in.header.event != GLS_EVENT_NICK_REQ) {
@@ -118,17 +120,27 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 
 		// Process nick request.
 		req = &packet_in.data.nick_req;
-		strlcpy(player->name, req->nick,
-			GLS_NAME_LENGTH);
-
-		// Reply to client event.
-		struct gls_nick_reply reply;
-		strlcpy(reply.nick, req->nick,
-			GLS_NAME_LENGTH);
-		reply.accepted = 1;
-		flub = gls_nick_reply_write(&reply, player->sockfd);
+		memset(&set, 0, sizeof(struct gls_nick_set));
+		for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+			if (!strncmp(server->players[i].name, req->nick,
+				GLS_NAME_LENGTH)) {
+				// Nick already in use.
+				strlcpy(set.reason, "Already in use",
+					GLS_NICK_SET_REASON);
+				break;
+			}
+		}
+		if (i == SERVER_PLAYER_MAX) {
+			// Nick not in use.
+			strlcpy(player->name, req->nick,
+				GLS_NAME_LENGTH);
+			strlcpy(set.nick, req->nick, GLS_NAME_LENGTH);
+		}
+		g_log_info("Player requested nick '%s' (%s)", req->nick,
+			set.nick[0] == '\0' ? set.reason : "accepted");
+		flub = gls_nick_set_write(&set, player->sockfd);
 		if (flub) {
-			return flub_append(flub, "unable to write nick reply");
+			return flub_append(flub, "unable to write nick set");
 		}
 	}
 	return NULL;

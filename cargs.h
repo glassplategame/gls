@@ -2,9 +2,9 @@
  *  Implementation of Dunbar's "Glass Plate Game" game, which is based off of
  *  Herman Hesse's novel, "The Glass Bead Game".
  *
- *  This is the client's portion of the code.
+ *  Argument definitions and parser for the client.
  *
- *  Copyright (C) 2015  "Frostsnow" (Wade T. Cline).
+ *  Copyright (C) 2017  Wade T. Cline.
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -19,31 +19,21 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef client_H
-#define client_H
 
-#include <bsd/string.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <regex.h>
-#include <stdint.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#ifndef cargs_H
+#define cargs_H
 
-#include "board.h"
-#include "cargs.h"
-#include "log.h"
+#include <getopt.h>
+
 #include "gls.h"
 
-#define CLIENT_COMMAND_SIZE 1024
-
-struct client {
-	struct board board;
-	int sockfd;
+// Client arguments.
+struct cargs {
+	// Nickname to use.
+	char nick[GLS_NAME_LENGTH];
 };
 
-struct flub* client_nickname_write(struct client* client, char* nickname);
+// Parse client arguments.
+struct flub* cargs_parse(struct cargs* args, int argc, char* argv[]);
 
-#endif // client_H
+#endif // cargs_H

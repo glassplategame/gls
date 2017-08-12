@@ -52,13 +52,14 @@ struct gls_nick_req {
 };
 
 /**
- * Server response to nickname request.
+ * Server setting specific nickname.
  */
-struct gls_nick_reply {
+#define GLS_NICK_SET_REASON 64
+struct gls_nick_set {
 	// Nickname requested.
 	char nick[GLS_NAME_LENGTH];
-	// Non-zero if nickname accepted.
-	uint16_t accepted;
+	// Reason for rejection.
+	char reason[GLS_NICK_SET_REASON];
 };
 
 /**
@@ -84,14 +85,14 @@ struct gls_protoverack {
 #define GLS_EVENT_PROTOVER		0x00000001
 #define GLS_EVENT_PROTOVERACK		0x00000002
 #define GLS_EVENT_NICK_REQ		0x00000003
-#define GLS_EVENT_NICK_REPLY		0x00000004
+#define GLS_EVENT_NICK_SET		0x00000004
 
 // Union of all packets.
 struct gls_packet {
 	struct gls_header header;
 	union {
 		struct gls_nick_req nick_req;
-		struct gls_nick_reply nick_reply;
+		struct gls_nick_set nick_set;
 		struct gls_protover protover;
 		struct gls_protoverack protoverack;
 	} data;
@@ -123,17 +124,6 @@ void gls_init_destructor(void* buffer);
 void gls_init_once();
 
 /**
- * Read the nick reply from the specified file descriptor.
- */
-struct flub* gls_nick_reply_read(struct gls_nick_reply* reply, int fd,
-	int validate);
-
-/**
- * Write the nick reply to the specified file descriptor.
- */
-struct flub* gls_nick_reply_write(struct gls_nick_reply* reply, int fd);
-
-/**
  * Read the nick request from the specified file descriptor.
  */
 struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate);
@@ -142,6 +132,23 @@ struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate);
  * Write the nick request to the specified file descriptor.
  */
 struct flub* gls_nick_req_write(struct gls_nick_req* req, int fd);
+
+/**
+ * Read the nick set from the specified file descriptor.
+ */
+struct flub* gls_nick_set_read(struct gls_nick_set* set, int fd,
+	int validate);
+
+/**
+ * Write the nick set to the specified file descriptor.
+ */
+struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd);
+
+/**
+ * Return a flub if the specified nickname is not valid, NULL otherwise.  A
+ * nonzero value in the 'empty' parameter specifies that the nick may be empty.
+ */
+struct flub* gls_nick_validate(char* nick, int empty);
 
 /**
  * Reads an arbitrary packet from the specified file descriptor.
