@@ -1,0 +1,217 @@
+This document describes the network protocol for the "Glass Plate Game".
+
+WARNING: This protocol is currently *unstable* and prone to radical change.
+
+DOUBLE WARNING: This protocol has not been peer-reviewed and is probably sucky.
+
+1. Packets
+
+All GLS packets are prefixed by an unsigned 32-bit integer which denotes the
+"event type" for the data proceeding it.  The amount of data proceeding the
+header is a fixed amount that depends on the event type.  The event type is
+in network byte order (big endian).
+
+1.1 Protocol Version Exchange ("Protover")
+
+The Protocol Version Exchange is sent by the client to the server in order to
+identify what version of the Glass Plate Game Protocol it supports.  There are
+three fields to the Protocol Version Exchange:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  | Magic |           Version             |       Software        >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                       |-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  Magic:  4 bytes
+
+    C-string containing "GLS" and a NUL byte.
+
+  Version:  16 bytes
+
+    C-string containing the protocol version used by the client.
+
+  Software:  128 bytes
+
+    C-string containing the name of the software used by the client.
+
+The Magic field identifies the byte stream as belonging to the GLS protocol,
+the Version field identifies which protocol version the client uses, and the
+Software field exists for informational purposes only.
+
+1.2 Protocol Version Exchange Acknowledgement ("Protoverack")
+
+The Protocol Version Exchange Acknowledgement is sent from the server to the
+client after receiving and processing the client's Protocol Version Exchange
+(see previous subsection).  There are five fields:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |ACK|                        Reason                             >
+  >                                                               >
+  >   | Magic |           Version             |       Software    >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                           |-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  ACK:  2 bytes
+
+    A 16-bit byte (in network byte order) representing whether or not the
+    server accepts the client's protocol version.  A nonzero value indicates
+    acceptance, a zero value indicates rejection.
+
+  Reason:  64 bytes
+
+    If the ACK field is false, the Reason field MUST contain a C-string
+    describing the reason for rejection.
+
+  The following fields are the same as the Protocol Version Exchange (see
+  previous subsection), except their data corresponds to the server.
+
+The ACK and Reason field allow the client to determine whether its protocol
+has been accepted by the server, and why it may have been rejected; the
+subsequent fields show exactly which protocol version the server desires.
+
+1.3 Nick Request
+
+The Nick Request packet allow the client to request a new nickname from the
+server.
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                            Nick                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  Nick:  32 bytes
+
+    A C-string containing the name requested by the client.  The string
+    MUST consist of a series of alphanumeric characters of nonzero length.
+
+1.4 Nick Set
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                            Nick                               |
+  |                           Reason                              >
+  >                                                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  Nick:  32 bytes
+
+    A C-string containing the name requested by the client.  The string MUST
+    consist of a series of alphanumeric characters, possibly of zero length.
+
+  Reason:  64 bytes
+  
+    A C-string containing the reason why a nickname was rejected by the server.
+    If Nick is of length zero this field MUST contain the reason why a nickname
+    was rejected by the server; otherwise this field MUST be an empty string.
+
+Note that there is currently no way for the server to specify which nickname
+it is rejecting, but it should be obvious enough from the context.  The server
+can also choose to force-set a nickname in this manner.
+
+2. Client State
+
+Clients have various states as they connect to and exchange data across the
+socket.
+
+  DISCONNECTED
+
+    The client is not currently connected to the game.
+
+  CONNECTED
+  
+    The client is connected via TCP but not authentication to the server.
+
+  AUTHENTICATED
+
+    Client has authenticated to the server.
+
+These states are important for the following sections, which describe what
+packets may be transmitted based on the client's state.
+
+3. Server
+
+3.1 DISCONNECTED
+
+Clients are initially in the DISCONNECTED state.  Upon accepting a connection
+the client is moved to the CONNECTED state.
+
+If the server has no more room for players, it MAY choose to drop the connection
+and reset the client to the DISCONNECTED state without any other response.
+
+3.2 CONNECTED
+
+In the CONNECTED state, the client MUST send a protover packet.  The server
+then confirms that the Version field of the client matches its own Version
+field; if they do not match then the server MUST respond with a protoverack
+packet with the ACK field unset and Reason field set to a human-readable reason
+for the rejection and return the client to the DISCONNECTED state; otherwise, if
+the Version field matches, the server MUST respond with with a protoverack with
+the ACK field set and move the client to the AUTHENTICATED state.  In addition,
+in both cases the server sets the protover subfields of the protoverack to the
+appropriate Magic number, the server's supported Version, and the name of the
+server's software.
+
+3.3 AUTHENTICATED
+
+In the AUTHENTICATED state the server responds to various client packets
+corresponding to the actual playing of the game.  If the server receives an
+unexpected event type, the client MUST be immediately disconnected and moved
+to the DISCONNECTED state.  If the server receives a remote hang-up, it must
+disconnect the client and move it to the DISCONNECTED state.  If the server
+receives a malformed packet it MUST disconnect the client and move it to the
+DISCONNECTED state.
+
+3.3.1 Nick Request
+
+Client requests a nickname change to the specified nickname.  The server SHOULD
+reply with a Nick Set packet indicating either that the user now has the
+specified nickname or a reason why the user will retain their current nickname.
+
+4. Client
+
+4.1 DISCONNECTED
+
+A Client starts out in the DISCONNECTED state.  A client MAY choose to move to
+the CONNECTED state by establishing a TCP connection with a remote server and
+having that connection accepted.
+
+4.2 CONNECTED
+
+In the CONNECTED state the client MUST send the server a protover packet
+containing the appropriate Magic, Version, and Software fields.  The server
+MAY disconnect the client without a response, probably because it has no more
+player slots available, in which case the client returns to the DISCONNECTED
+state.  The client MUST then listen for a protoverack packet from the server;
+when the packet is received, if the ACK field is unset, the client MUST print
+the reason to the client, disconnect from the server, and return the the
+DISCONNECTED state.  If the ACK field is set, then the client moves to the
+AUTHENTICATED state.
+
+4.3 AUTHENTICATED
+
+In this state the client must be ready to respond to events from the server
+and be prepared to forward any input from the user to the server.
+
+4.3.1 Nick Request
+The user may choose to request a new nickname, in which case the client MUST
+send a Nick Request packet to the server with the requested nickname.
+
+4.3.2 Nick Set
+The server may choose to send a Nick Set packet to the server.  If the packet
+contains a non-empty nickname, the client MUST inform the user that their
+nickname has been set to the specified nickname; otherwise, if the packet
+contains an empty nickname, the client MUST inform the user that a previous
+Nick Request was rejected for the reason listed in the Reason field of the
+packet.
