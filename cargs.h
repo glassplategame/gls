@@ -33,6 +33,11 @@ struct cargs {
 	char nick[GLS_NAME_LENGTH];
 };
 
+// Print help message for client arguments then exit the program.
+// If a flub is specified then output is sent to stderr instead of stdout
+// and the program exits with failure rather than success.
+void cargs_help(struct cargs* args, struct flub* flub);
+
 // Parse client arguments.
 struct flub* cargs_parse(struct cargs* args, int argc, char* argv[]);
 
