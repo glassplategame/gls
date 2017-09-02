@@ -46,6 +46,8 @@ struct player {
 	unsigned authenticated:1;
 	// Connection open.
 	unsigned connected:1;
+	// Protover verified.
+	unsigned protoverokay:1;
 	// Killed by server.
 	unsigned killed:1;
 };

@@ -69,6 +69,12 @@ struct flub* server_init(struct server* server);
 struct flub* server_player_data(struct server* server, struct player* player);
 
 /**
+ * Process player's requested nick change.
+ */
+struct flub* server_player_nick(struct server* server, struct player* player,
+	struct gls_nick_req* req);
+
+/**
  * Server run loop.
  */
 struct flub* server_run(struct server* server);

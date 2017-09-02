@@ -131,11 +131,15 @@ socket.
 
   CONNECTED
   
-    The client is connected via TCP but not authentication to the server.
+    The client is connected via TCP and needs to exchange protovers.
+
+  PROTOVEROKAY
+
+    The client has an acceptable protover and must now choose a nickname.
 
   AUTHENTICATED
 
-    Client has authenticated to the server.
+    Client has authenticated to the server (by selecting a nickname).
 
 These states are important for the following sections, which describe what
 packets may be transmitted based on the client's state.
@@ -148,7 +152,8 @@ Clients are initially in the DISCONNECTED state.  Upon accepting a connection
 the client is moved to the CONNECTED state.
 
 If the server has no more room for players, it MAY choose to drop the connection
-and reset the client to the DISCONNECTED state without any other response.
+and reset the client to the DISCONNECTED state without any other response. If a
+client is moved to the DISCONNECTED state then its TCP connection is closed.
 
 3.2 CONNECTED
 
@@ -163,7 +168,20 @@ in both cases the server sets the protover subfields of the protoverack to the
 appropriate Magic number, the server's supported Version, and the name of the
 server's software.
 
-3.3 AUTHENTICATED
+3.3 PROTOVEROKAY
+
+The server has authenticated the client's protover and is now waiting on the
+client to request a nickname.  The client MUST send the server a Nick Req
+packet, otherwise the server MUST return the client to the DISCONNECTED state.
+If the server chooses to reject a nickname, it MUST inform the client with a
+Nick Set packet with the Reason field set appropriately, then wait for another
+Nick Req packet from the client.  A server MUST reject the client's nickname if
+it is already in use and MAY reject a nickname at its own discretion.  If the
+server accepts the client's nickname, the client is moved to the AUTHENTICATED
+state and the server MUST send the client a Nick Set packet with the client's
+requested nickname.
+
+3.4 AUTHENTICATED
 
 In the AUTHENTICATED state the server responds to various client packets
 corresponding to the actual playing of the game.  If the server receives an
@@ -173,7 +191,7 @@ disconnect the client and move it to the DISCONNECTED state.  If the server
 receives a malformed packet it MUST disconnect the client and move it to the
 DISCONNECTED state.
 
-3.3.1 Nick Request
+3.4.1 Nick Request
 
 Client requests a nickname change to the specified nickname.  The server SHOULD
 reply with a Nick Set packet indicating either that the user now has the
@@ -199,16 +217,23 @@ the reason to the client, disconnect from the server, and return the the
 DISCONNECTED state.  If the ACK field is set, then the client moves to the
 AUTHENTICATED state.
 
-4.3 AUTHENTICATED
+4.3 PROTOVEROKAY
+
+The client MUST send the server a Nick Req packet with the client's desired
+nickname.  The server MAY reject the nickname, in which case the client MUST
+choose another nickname or return to the DISCONNECTED state.  If the server
+accepts the nickname then the client is moved to the AUTHENTICATED state.
+
+4.4 AUTHENTICATED
 
 In this state the client must be ready to respond to events from the server
 and be prepared to forward any input from the user to the server.
 
-4.3.1 Nick Request
+4.4.1 Nick Request
 The user may choose to request a new nickname, in which case the client MUST
 send a Nick Request packet to the server with the requested nickname.
 
-4.3.2 Nick Set
+4.4.2 Nick Set
 The server may choose to send a Nick Set packet to the server.  If the packet
 contains a non-empty nickname, the client MUST inform the user that their
 nickname has been set to the specified nickname; otherwise, if the packet
