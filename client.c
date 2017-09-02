@@ -226,8 +226,8 @@ int main(int argc, char* argv[]) {
 				done = 1;
 				break;
 			}
-			switch(packet.header.event) {
-			case(GLS_EVENT_NICK_SET):
+			switch (packet.header.event) {
+			case (GLS_EVENT_NICK_SET):
 				if (!strlen(packet.data.nick_set.nick)) {
 					g_log_info("Server rejected nickname: "
 						"'%s'",
@@ -237,6 +237,11 @@ int main(int argc, char* argv[]) {
 						"'%s'",
 						packet.data.nick_set.nick);
 				}
+				break;
+			case (GLS_EVENT_NICK_CHANGE):
+				g_log_info("Player '%s' is now known as '%s'",
+					packet.data.nick_change.old,
+					packet.data.nick_change.new);
 				break;
 			default:
 				g_log_error("Unknown event: '%i'",

@@ -44,6 +44,14 @@ struct gls_header {
 };
 
 /**
+ * Player nickname change.
+ */
+struct gls_nick_change {
+	char old[GLS_NAME_LENGTH];
+	char new[GLS_NAME_LENGTH];
+};
+
+/**
  * Request server to set nick to specified nickname.
  */
 struct gls_nick_req {
@@ -86,6 +94,7 @@ struct gls_protoverack {
 #define GLS_EVENT_PROTOVERACK		0x00000002
 #define GLS_EVENT_NICK_REQ		0x00000003
 #define GLS_EVENT_NICK_SET		0x00000004
+#define GLS_EVENT_NICK_CHANGE		0x00000005
 
 // Union of all packets.
 struct gls_packet {
@@ -95,6 +104,7 @@ struct gls_packet {
 		struct gls_nick_set nick_set;
 		struct gls_protover protover;
 		struct gls_protoverack protoverack;
+		struct gls_nick_change nick_change;
 	} data;
 };
 
@@ -122,6 +132,17 @@ void gls_init_destructor(void* buffer);
  * Private key-initialization function.
  */
 void gls_init_once();
+
+/**
+ * Read the nick change notification from the specified file descriptor.
+ */
+struct flub* gls_nick_change_read(struct gls_nick_change* change, int fd,
+	int validate);
+
+/**
+ * Write the nick change notification to the specified file descriptor.
+ */
+struct flub* gls_nick_change_write(struct gls_nick_change* change, int fd);
 
 /**
  * Read the nick request from the specified file descriptor.

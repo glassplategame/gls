@@ -140,12 +140,14 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 
 struct flub* server_player_nick(struct server* server, struct player* player,
 	struct gls_nick_req* req) {
+	struct gls_nick_change change;
 	struct flub* flub;
-	struct gls_nick_set set;
 	int i;
+	struct gls_nick_set set;
 
 	// Process nick request.
 	memset(&set, 0, sizeof(struct gls_nick_set));
+	memset(&change, 0, sizeof(struct gls_nick_change));
 	for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 		if (!strncmp(server->players[i].name, req->nick,
 			GLS_NAME_LENGTH)) {
@@ -157,19 +159,37 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 	}
 	if (i == SERVER_PLAYER_MAX) {
 		// Nick not in use.
-		strlcpy(player->name, req->nick,
-			GLS_NAME_LENGTH);
+		strlcpy(change.old, player->name, GLS_NAME_LENGTH);
+		strlcpy(change.new, req->nick, GLS_NAME_LENGTH);
+		strlcpy(player->name, req->nick, GLS_NAME_LENGTH);
 		strlcpy(set.nick, req->nick, GLS_NAME_LENGTH);
-		if (!player->authenticated) {
-			// Minor hack for authentication.
-			player->authenticated = 1;
-		}
 	}
 	g_log_info("Player requested nick '%s' (%s)", req->nick,
 		set.nick[0] == '\0' ? set.reason : "accepted");
 	flub = gls_nick_set_write(&set, player->sockfd);
 	if (flub) {
 		return flub_append(flub, "unable to write nick set");
+	}
+
+	// Inform other players.
+	if (!player->authenticated) {
+		// Minor hack for authentication.
+		player->authenticated = 1;
+		// TODO: Inform other players of a join.
+	} else if (set.nick[0] != '\0') {
+		for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+			if (!server->players[i].authenticated ||
+				player == &server->players[i]) {
+				// Not playing or is current player.
+				continue;
+			}
+			if ((flub = gls_nick_change_write(&change,
+				server->players[i].sockfd))) {
+				g_log_warn("Unable to inform player '%i' of "
+					"nick change: %s", i, flub->message);
+				player_kill(&server->players[i]);
+			}
+		}
 	}
 	return NULL;
 }

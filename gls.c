@@ -206,6 +206,74 @@ struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd) {
 	return NULL;
 }
 
+
+struct flub* gls_nick_change_read(struct gls_nick_change* change, int fd,
+	int validate) {
+	struct flub* flub;
+	struct iovec iovs[2];
+	ssize_t len;
+
+	// Read nick change.
+	memset(change, 0, sizeof(struct gls_nick_change));
+	len = 0;
+	iovs[0].iov_base = &change->old;
+	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	iovs[1].iov_base = &change->new;
+	len += iovs[1].iov_len = GLS_NAME_LENGTH;
+	if (gls_readvn(fd, iovs, 2) < len) {
+		return g_flub_toss("Unable to read nick change: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate nick change.
+	if (!validate) {
+		return NULL;
+	}
+	flub = gls_nick_validate(change->old, 0);
+	if (flub) {
+		return flub_append(flub, "validating nick change old nick");
+	}
+	flub = gls_nick_validate(change->new, 0);
+	if (flub) {
+		return flub_append(flub, "validating nick change new nick");
+	}
+	return NULL;
+}
+
+struct flub* gls_nick_change_write(struct gls_nick_change* change, int fd) {
+	// Write nick change.
+	char* buf;
+	char* cur;
+	ssize_t len;
+
+	// Get buffer.
+	buf = pthread_getspecific(gls_key);
+	if (!buf) {
+		return g_flub_toss("Unable to get buffer");
+	}
+
+	// Prepare header.
+	cur = buf;
+	gls_header_marshal(cur, GLS_EVENT_NICK_CHANGE);
+	cur += 4;
+	len = 4;
+
+	// Prepare nick change.
+	memcpy(cur, change->old, GLS_NAME_LENGTH);
+	cur += GLS_NAME_LENGTH;
+	len += GLS_NAME_LENGTH;
+	memcpy(cur, change->new, GLS_NAME_LENGTH);
+	cur += GLS_NAME_LENGTH;
+	len += GLS_NAME_LENGTH;
+
+	// Write packet.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write nick change: '%s'",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
 struct flub* gls_nick_req_read(struct gls_nick_req* req, int fd, int validate) {
 	struct flub* flub;
 	ssize_t size = sizeof(req->nick);
@@ -305,6 +373,10 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 		flub = gls_nick_set_read(&packet->data.nick_set, fd,
 			validate);
 		break;
+	case GLS_EVENT_NICK_CHANGE:
+		flub = gls_nick_change_read(&packet->data.nick_change, fd,
+			validate);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -332,6 +404,9 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 		break;
 	case GLS_EVENT_NICK_SET:
 		flub = gls_nick_set_write(&packet->data.nick_set, fd);
+		break;
+	case GLS_EVENT_NICK_CHANGE:
+		flub = gls_nick_change_write(&packet->data.nick_change, fd);
 		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",

@@ -120,6 +120,28 @@ Note that there is currently no way for the server to specify which nickname
 it is rejecting, but it should be obvious enough from the context.  The server
 can also choose to force-set a nickname in this manner.
 
+1.5 Nick Change
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                          Old Nick                             |
+  |                          New Nick                             |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+  Old Nick:  32 bytes
+
+    A C-string containing the old nickname of the player whose nickname has
+    changed.
+
+  New Nick:  32 bytes
+
+    A C-string containing the new nickname of the player whose nickname has
+    changed.
+
+This packet informs players when another player's nickname has changed.
+
 2. Client State
 
 Clients have various states as they connect to and exchange data across the
@@ -193,9 +215,11 @@ DISCONNECTED state.
 
 3.4.1 Nick Request
 
-Client requests a nickname change to the specified nickname.  The server SHOULD
-reply with a Nick Set packet indicating either that the user now has the
-specified nickname or a reason why the user will retain their current nickname.
+Client requests a nickname change to the specified nickname.  The server MUST
+reply with a Nick Set packet indicating either that the client now has the
+specified nickname or a reason why the client will retain their current
+nickname. If the client's nickname is changed, the server MUST also send a Nick
+Change packet to every other client in the AUTHENTICATED state.
 
 4. Client
 
@@ -234,9 +258,13 @@ The user may choose to request a new nickname, in which case the client MUST
 send a Nick Request packet to the server with the requested nickname.
 
 4.4.2 Nick Set
-The server may choose to send a Nick Set packet to the server.  If the packet
+The server may choose to send a Nick Set packet to the client.  If the packet
 contains a non-empty nickname, the client MUST inform the user that their
 nickname has been set to the specified nickname; otherwise, if the packet
 contains an empty nickname, the client MUST inform the user that a previous
 Nick Request was rejected for the reason listed in the Reason field of the
 packet.
+
+4.4.3 Nick Change
+The server will send the client a Nick Change packet when another client's
+nickname has changed.  The client MUST inform the user of the change.
