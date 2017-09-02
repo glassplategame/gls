@@ -3,7 +3,8 @@
 struct flub* cargs_parse(struct cargs* args, int argc, char* argv[]) {
 	struct flub* flub;
 	struct option longopts[] = {
-		{"nick", 1, NULL, 'n'}
+		{"nick", 1, NULL, 'n'},
+		{0, 0, 0, 0}
 	};
 	int ret;
 
@@ -26,7 +27,13 @@ struct flub* cargs_parse(struct cargs* args, int argc, char* argv[]) {
 				optopt);
 		case '?':
 			// Unknown option.
-			return g_flub_toss("Unknown argument '%c'", optopt);
+			if (optopt) {
+				return g_flub_toss("Unknown argument '%c'",
+					optopt);
+			} else {
+				return g_flub_toss("Unknown longopt at index "
+					"'%i'", optind);
+			}
 		default:
 			// Error!
 			return g_flub_toss("Unable to parse arguments");
