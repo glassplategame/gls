@@ -429,7 +429,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Run the server.
-	log_info(&g_log, "Running server");
+	g_log_info("Running server");
 	flub = server_run(&server);
 	if (flub) {
 		log_error(&g_log, "Error running server: '%s'", flub->message);
@@ -437,6 +437,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Stop logging.
+	g_log_info("Server shutdown");
 	log_free(&g_log);
 
 	// Exit the program.
