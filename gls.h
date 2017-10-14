@@ -75,7 +75,7 @@ struct gls_nick_set {
  */
 #define GLS_PROTOVER_MAGIC_LENGTH 4
 #define GLS_PROTOVER_VERSION_LENGTH 16
-#define GLS_PROTOVER_SOFTWARE_LENGTH 128
+#define GLS_PROTOVER_SOFTWARE_LENGTH 32
 struct gls_protover {
 	char magic[GLS_PROTOVER_MAGIC_LENGTH];
 	char version[GLS_PROTOVER_VERSION_LENGTH];
