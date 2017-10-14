@@ -192,10 +192,16 @@ int main(int argc, char* argv[]) {
 
 	// Play the game (main loop).
 	done = 0;
-	regex_t regex;
+	regex_t regex_nick_pre;
+	regex_t regex_nick_post;
 	regmatch_t regmatch[2];
-	if ((ret = regcomp(&regex, "^nick\\s+(\\w+)$", REG_EXTENDED))) {
-		g_log_error("Unable to compile regex: '%i'", ret);
+	if ((ret = regcomp(&regex_nick_pre, "^\\s*nick\\s*.*$",
+		REG_EXTENDED | REG_NOSUB))) {
+		g_log_error("Unable to compile 1st nick regex: '%i'", ret);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_nick_post, "^\\s*nick\\s++(\\w+)\\s*$",
+		REG_EXTENDED))) {
+		g_log_error("Unable to compile 2nd nick regex: '%i'", ret);
 		exit(EXIT_FAILURE);
 	}
 	while (!done) {
@@ -291,7 +297,14 @@ int main(int argc, char* argv[]) {
 		} else if (!strcmp(command, "board")) {
 			// Print game board.
 			board_print(&client.board, STDOUT_FILENO);
-		} else if (!regexec(&regex, command, 2, regmatch, 0)) {
+		} else if (!regexec(&regex_nick_pre, command, 2, NULL, 0)) {
+			// Check for nick argument.
+			if (regexec(&regex_nick_post, command, 2, regmatch,
+				0)) {
+				g_log_warn("Unable to parse nickname");
+				continue;
+			}
+
 			// Read nick from client.
 			struct gls_nick_req req;
 			memset(&req, 0, sizeof(struct gls_nick_req));
