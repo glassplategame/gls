@@ -136,6 +136,36 @@ can also choose to force-set a nickname in this manner.
 
 This packet informs players when another player's nickname has changed.
 
+1.6 Player Join
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                             Nick                              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+  Nick:  32 bytes
+
+    A C-string containing the nickname of the player who has joined the game.
+
+This packet informs players when another player has joined the game.
+
+1.7 Player Part
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                             Nick                              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+  Nick:  32 bytes
+
+    A C-string containing the nickname of the player who has parted the game.
+
+This packet informs players when another player has parted (left) the game.
+
 2. Client State
 
 Clients have various states as they connect to and exchange data across the
@@ -262,3 +292,11 @@ packet.
 4.4.3 Nick Change
 The server will send the client a Nick Change packet when another client's
 nickname has changed.  The client MUST inform the user of the change.
+
+4.4.4 Player Join
+The server will send the client a Player Join packet when another client has
+joined the game.  The client MUST inform the user of the new client.
+
+4.4.5 Player Part
+The server will send the client a Player Part packet when another client has
+left the game.  The client MUST inform the user of the departed client.

@@ -71,6 +71,22 @@ struct gls_nick_set {
 };
 
 /**
+ * Player joins game.
+ */
+struct gls_player_join {
+	// Player joining.
+	char nick[GLS_NAME_LENGTH];
+};
+
+/**
+ * Player leaves game.
+ */
+struct gls_player_part {
+	// Player parting.
+	char nick[GLS_NAME_LENGTH];
+};
+
+/**
  * Protocol Version data.
  */
 #define GLS_PROTOVER_MAGIC_LENGTH 4
@@ -95,6 +111,8 @@ struct gls_protoverack {
 #define GLS_EVENT_NICK_REQ		0x00000003
 #define GLS_EVENT_NICK_SET		0x00000004
 #define GLS_EVENT_NICK_CHANGE		0x00000005
+#define GLS_EVENT_PLAYER_JOIN		0x00000006
+#define GLS_EVENT_PLAYER_PART		0x00000007
 
 // Union of all packets.
 struct gls_packet {
@@ -105,6 +123,8 @@ struct gls_packet {
 		struct gls_protover protover;
 		struct gls_protoverack protoverack;
 		struct gls_nick_change nick_change;
+		struct gls_player_join player_join;
+		struct gls_player_part player_part;
 	} data;
 };
 
@@ -180,6 +200,28 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate);
  * Writes the specified packet to the specified file descriptor.
  */
 struct flub* gls_packet_write(struct gls_packet* packet, int fd);
+
+/**
+ * Read the specified Player Join packet from the specified file descriptor.
+ */
+struct flub* gls_player_join_read(struct gls_player_join* join, int fd,
+	int validate);
+
+/**
+ * Write the specified Player Join packet to the specified file descriptor.
+ */
+struct flub* gls_player_join_write(struct gls_player_join* join, int fd);
+
+/**
+ * Read the specified Player Part packet from the specified file descriptor.
+ */
+struct flub* gls_player_part_read(struct gls_player_part* part, int fd,
+	int validate);
+
+/**
+ * Write the specified Player Part packet to the specified file descriptor.
+ */
+struct flub* gls_player_part_write(struct gls_player_part* part, int fd);
 
 /**
  * Read the protocol version information from the specified file descriptor.

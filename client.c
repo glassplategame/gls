@@ -249,6 +249,14 @@ int main(int argc, char* argv[]) {
 					packet.data.nick_change.old,
 					packet.data.nick_change.new);
 				break;
+			case (GLS_EVENT_PLAYER_JOIN):
+				g_log_info("Player '%s' has joined",
+					packet.data.player_join.nick);
+				break;
+			case (GLS_EVENT_PLAYER_PART):
+				g_log_info("Player '%s' has parted",
+					packet.data.player_part.nick);
+				break;
 			default:
 				g_log_error("Unknown event: '%i'",
 					packet.header.event);

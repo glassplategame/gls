@@ -377,6 +377,14 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 		flub = gls_nick_change_read(&packet->data.nick_change, fd,
 			validate);
 		break;
+	case GLS_EVENT_PLAYER_JOIN:
+		flub = gls_player_join_read(&packet->data.player_join, fd,
+			validate);
+		break;
+	case GLS_EVENT_PLAYER_PART:
+		flub = gls_player_part_read(&packet->data.player_part, fd,
+			validate);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -408,6 +416,12 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 	case GLS_EVENT_NICK_CHANGE:
 		flub = gls_nick_change_write(&packet->data.nick_change, fd);
 		break;
+	case GLS_EVENT_PLAYER_JOIN:
+		flub = gls_player_join_write(&packet->data.player_join, fd);
+		break;
+	case GLS_EVENT_PLAYER_PART:
+		flub = gls_player_part_write(&packet->data.player_part, fd);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -415,6 +429,104 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 	}
 	if (flub) {
 		return flub;
+	}
+	return NULL;
+}
+
+struct flub* gls_player_join_read(struct gls_player_join* join, int fd,
+	int validate) {
+	struct flub* flub;
+	ssize_t size = sizeof(join->nick);
+
+	// Read in data.
+	if (gls_readn(fd, join->nick, size) < size) {
+		return g_flub_toss("Unable to read player join nick: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	if ((flub = gls_nick_validate(join->nick, 0))) {
+		return flub_append(flub, "reading player join");
+	}
+	return NULL;
+}
+
+struct flub* gls_player_join_write(struct gls_player_join* join, int fd) {
+	char* buf;
+	char* cur;
+	int32_t len;
+
+	// Get buffer.
+	buf = pthread_getspecific(gls_key);
+	if (!buf) {
+		return g_flub_toss("Unable to get buffer");
+	}
+
+	// Prepare header.
+	cur = buf;
+	gls_header_marshal(cur, GLS_EVENT_PLAYER_JOIN);
+	cur += len = sizeof(len);
+
+	// Prepare player join.
+	memcpy(cur, join->nick, sizeof(join->nick));
+	len += sizeof(join->nick);
+
+	// Write data.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write player join: '%s'",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
+struct flub* gls_player_part_read(struct gls_player_part* part, int fd,
+	int validate) {
+	struct flub* flub;
+	ssize_t size = sizeof(part->nick);
+
+	// Read in data.
+	if (gls_readn(fd, part->nick, size) < size) {
+		return g_flub_toss("Unable to read player part nick: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	if ((flub = gls_nick_validate(part->nick, 0))) {
+		return flub_append(flub, "reading player part");
+	}
+	return NULL;
+}
+
+struct flub* gls_player_part_write(struct gls_player_part* part, int fd) {
+	char* buf;
+	char* cur;
+	int32_t len;
+
+	// Get buffer.
+	buf = pthread_getspecific(gls_key);
+	if (!buf) {
+		return g_flub_toss("Unable to get buffer");
+	}
+
+	// Prepare header.
+	cur = buf;
+	gls_header_marshal(cur, GLS_EVENT_PLAYER_PART);
+	cur += len = sizeof(len);
+
+	// Prepare player part.
+	memcpy(cur, part->nick, sizeof(part->nick));
+	len += sizeof(part->nick);
+
+	// Write data.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write player part: '%s'",
+			g_serr(errno));
 	}
 	return NULL;
 }

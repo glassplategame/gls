@@ -105,7 +105,6 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 			return g_flub_toss("Protcol version not accepted: %s",
 				pack->reason);
 		}
-		log_info(&g_log, "Player authenticated");
 		player->protoverokay = 1;
 	} else if (!player->authenticated) { // Expect nick request.
 		// Read nick request.
@@ -164,19 +163,43 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 		strlcpy(player->name, req->nick, GLS_NAME_LENGTH);
 		strlcpy(set.nick, req->nick, GLS_NAME_LENGTH);
 	}
-	g_log_info("Player requested nick '%s' (%s)", req->nick,
-		set.nick[0] == '\0' ? set.reason : "accepted");
+	g_log_info("Player '%s' requested nick '%s' (%s)",
+		player->authenticated ? set.nick[0] == '\0' ? player->name :
+		change.old : "(unauthenticated)",
+		req->nick, set.nick[0] == '\0' ? set.reason : "accepted");
 	flub = gls_nick_set_write(&set, player->sockfd);
 	if (flub) {
 		return flub_append(flub, "unable to write nick set");
+	} else if (set.nick[0] == '\0') {
+		// Nick was rejected, done now.
+		return NULL;
 	}
 
 	// Inform other players.
 	if (!player->authenticated) {
+		struct gls_player_join join;
+
 		// Minor hack for authentication.
 		player->authenticated = 1;
-		// TODO: Inform other players of a join.
-	} else if (set.nick[0] != '\0') {
+
+		// Inform other players of join.
+		memset(&join, 0, sizeof(join));
+		strlcpy(join.nick, player->name, GLS_NAME_LENGTH);
+		for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+			if (!server->players[i].authenticated ||
+				player == &server->players[i]) {
+				// Not playing or is current player.
+				continue;
+			}
+			if ((flub = gls_player_join_write(&join,
+				server->players[i].sockfd))) {
+				g_log_warn("Unable to inform player '%i' of "
+					"player join: %s", i, flub->message);
+				player_kill(&server->players[i]);
+			}
+		}
+	} else {
+		// Send nick change to other players.
 		for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 			if (!server->players[i].authenticated ||
 				player == &server->players[i]) {
@@ -294,12 +317,35 @@ struct flub* server_run(struct server* server) {
 					continue;
 				} else if (pollfd->revents & POLLHUP ||
 					pollfd->revents & POLLRDHUP) {
+					struct gls_player_part part;
+
+					// Save player name.
+					memset(&part, 0, sizeof(part));
+					strlcpy(part.nick, player->name,
+						GLS_NAME_LENGTH);
+
 					// Player thread done.
-					g_log_info("Freeing player");
+					g_log_info("Freeing player '%s'",
+						player->name);
 					player_free(player, flub);
 					if (flub) {
 						g_log_warn("Player error: '%s'",
 							flub->message);
+					}
+
+					// Inform other players.
+					// TODO: Too deep, refactor.
+					for (i = 0; i < SERVER_PLAYER_MAX;
+						i++) {
+						if (!server->players[i].authenticated) {
+							continue;
+						}
+						if ((flub = gls_player_part_write(
+							&part, server->players[i].sockfd))) {
+							g_log_warn("Unable to inform player '%i' of part: %s",
+								i, flub->message);
+							player_kill(&server->players[i]);
+						}
 					}
 					continue;
 				} else if (pollfd->revents & POLLNVAL) {
