@@ -298,12 +298,13 @@ void* player_thread(void* v_player) {
 				g_serr(errno));
 			break;
 		}
-		// Data from server
-		if (pollfds[FD_PIPE].revents & POLLIN) {
+		// Data from server.
+		if (pollfds[FD_PIPE].revents & (POLLIN | POLLHUP)) {
 			// Check for server kill.
 			if (pollfds[FD_SOCKET].revents & POLLHUP) {
-				// Finish reading from pipe.
-				if (ioctl(player->sockfd, FIONREAD, &ret)
+				// Finish reading from server pipe.
+				if (ioctl(player->pipe_server_from[0], FIONREAD,
+					&ret)
 					== -1) {
 					flub = g_flub_toss("Unable to check "
 						"for bytes after kill: '%s'",
