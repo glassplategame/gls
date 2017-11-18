@@ -58,6 +58,15 @@ struct server {
 	struct sockaddr_in sockaddr_in;
 };
 
+// Track whether specified signal has been sent.
+static int server_sigint = 0;
+static int server_sigterm = 0;
+
+/**
+ * Server signal handler for SIGINT and SIGTERM.
+ */
+void server_handler(int sig);
+
 /**
  * Prepare a server for running.
  */

@@ -22,6 +22,15 @@
 
 #include "server.h"
 
+void server_handler(int sig) {
+	// Set appropriate static signal flag.
+	if (sig == SIGINT) {
+		server_sigint = 1;
+	} else if (sig == SIGTERM) {
+		server_sigterm = 1;
+	}
+}
+
 struct flub* server_init(struct server* server) {
 	int sockfd;
 
@@ -290,8 +299,10 @@ struct flub* server_run(struct server* server) {
 			// Call poll.
 			ret = poll(pollfds, pollfd_count, 10);
 			if (ret == -1) {
-				g_log_error("Unable to poll: '%s'",
-					g_serr(errno));
+				if (errno != EINTR) {
+					g_log_error("Unable to poll: '%s'",
+						g_serr(errno));
+				}
 				break;
 			}
 
@@ -367,7 +378,16 @@ struct flub* server_run(struct server* server) {
 					player_kill(player);
 				}
 			}
-		} while (ret);
+		} while (ret); // Handle player data.
+
+		// Check for signal.
+		if (server_sigint) {
+			g_log_info("Server received SIGINT");
+			server->running = 0;
+		} else if (server_sigterm) {
+			g_log_info("Server received SIGTERM");
+			server->running = 0;
+		}
 	}
 	return NULL;
 }
@@ -378,6 +398,7 @@ struct flub* server_run(struct server* server) {
 int main(int argc, char* argv[]) {
 	struct flub* flub;
 	struct server server;
+	struct sigaction sa;
 	int ret;
 
 	// Open log file.
@@ -417,6 +438,21 @@ int main(int argc, char* argv[]) {
 	// the 'sigaction' system call.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		g_log_error("Unable to ignore SIGPIPE: '%s'", g_serr(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	// Handle 'SIGINT' and 'SIGTERM' signals.
+	sa.sa_handler = server_handler;
+	sa.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGINT, &sa, NULL) == -1) {
+		g_log_error("Unable to setup SIGINT handler: '%s'",
+			g_serr(errno));
+		exit(EXIT_FAILURE);
+	}
+	if (sigaction(SIGTERM, &sa, NULL) == -1) {
+		g_log_error("Unable to setup SIGTERM handler: '%s'",
+			g_serr(errno));
 		exit(EXIT_FAILURE);
 	}
 
