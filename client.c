@@ -257,6 +257,11 @@ int main(int argc, char* argv[]) {
 				g_log_info("Player '%s' has parted",
 					packet.data.player_part.nick);
 				break;
+			case (GLS_EVENT_SHUTDOWN):
+				g_log_info("Server shutdown: '%s'",
+					packet.data.shutdown.reason);
+				done = 1;
+				break;
 			default:
 				g_log_error("Unknown event: '%i'",
 					packet.header.event);

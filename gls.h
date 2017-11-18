@@ -105,6 +105,14 @@ struct gls_protoverack {
 	struct gls_protover pver;
 };
 
+/**
+ * Server shutdown packet.
+ */
+#define GLS_SHUTDOWN_REASON_LENGTH 64
+struct gls_shutdown {
+	char reason[GLS_SHUTDOWN_REASON_LENGTH];
+};
+
 // Packet headers.
 #define GLS_EVENT_PROTOVER		0x00000001
 #define GLS_EVENT_PROTOVERACK		0x00000002
@@ -113,6 +121,7 @@ struct gls_protoverack {
 #define GLS_EVENT_NICK_CHANGE		0x00000005
 #define GLS_EVENT_PLAYER_JOIN		0x00000006
 #define GLS_EVENT_PLAYER_PART		0x00000007
+#define GLS_EVENT_SHUTDOWN		0x00000008
 
 // Union of all packets.
 struct gls_packet {
@@ -125,6 +134,7 @@ struct gls_packet {
 		struct gls_nick_change nick_change;
 		struct gls_player_join player_join;
 		struct gls_player_part player_part;
+		struct gls_shutdown shutdown;
 	} data;
 };
 
@@ -260,6 +270,17 @@ ssize_t gls_readn(int fd, void* buffer, size_t count);
  * Returns the number of bytes read, or -1 on error.
  */
 ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt);
+
+/**
+ * Read the specified Shutdown packet from the specified file descriptor.
+ */
+struct flub* gls_shutdown_read(struct gls_shutdown* shutdown, int fd,
+	int validate);
+
+/**
+ * Write the specified Shutdown packet to the specified file descriptor.
+ */
+struct flub* gls_shutdown_write(struct gls_shutdown* shutdown, int fd);
 
 /**
  * Re-attempts partial writes.

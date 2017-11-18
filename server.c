@@ -228,6 +228,7 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 
 struct flub* server_run(struct server* server) {
 	struct flub* flub;
+	struct gls_shutdown shutdown;
 	int i;
 	int j;
 
@@ -389,6 +390,38 @@ struct flub* server_run(struct server* server) {
 			server->running = 0;
 		}
 	}
+
+	// Shutdown message.
+	if (server_sigint) {
+		strlcpy(shutdown.reason, "Server received SIGINT",
+			GLS_SHUTDOWN_REASON_LENGTH);
+	} else if (server_sigterm) {
+		strlcpy(shutdown.reason, "Server received SIGTERM",
+			GLS_SHUTDOWN_REASON_LENGTH);
+	} else {
+		strlcpy(shutdown.reason, "Server shutdown",
+			GLS_SHUTDOWN_REASON_LENGTH);
+	}
+	for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+		struct player* player;
+
+		// Send message to players.
+		player = &server->players[i];
+		if (!player->connected) {
+			continue;
+		}
+		if ((flub = gls_shutdown_write(&shutdown, player->sockfd))) {
+			g_log_error("Unable to inform player '%s' of shutdown: "
+				"'%s'", player->name, flub->message);
+		}
+
+		// Remove the player.
+		// This is kind of sloppy, and might end up hanging things due
+		// to pthreads weirdness.
+		player_kill(player);
+		player_free(player, flub);
+	}
+
 	return NULL;
 }
 
@@ -473,7 +506,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Stop logging.
-	g_log_info("Server shutdown");
 	log_free(&g_log);
 
 	// Exit the program.

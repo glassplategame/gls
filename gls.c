@@ -385,6 +385,9 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 		flub = gls_player_part_read(&packet->data.player_part, fd,
 			validate);
 		break;
+	case GLS_EVENT_SHUTDOWN:
+		flub = gls_shutdown_read(&packet->data.shutdown, fd, validate);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -421,6 +424,9 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 		break;
 	case GLS_EVENT_PLAYER_PART:
 		flub = gls_player_part_write(&packet->data.player_part, fd);
+		break;
+	case GLS_EVENT_SHUTDOWN:
+		flub = gls_shutdown_write(&packet->data.shutdown, fd);
 		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
@@ -693,6 +699,64 @@ ssize_t gls_readn(int fd, void* buffer, size_t count) {
 
 ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt) {
 	return gls_rdwrvn(fd, iov, iovcnt, readv);
+}
+
+struct flub* gls_shutdown_read(struct gls_shutdown* shutdown, int fd,
+	int validate) {
+	int i;
+	size_t len;
+
+	// Read in data.
+	memset(shutdown, 0, sizeof(struct gls_shutdown));
+	if (gls_readn(fd, &shutdown->reason, GLS_SHUTDOWN_REASON_LENGTH) <
+		GLS_SHUTDOWN_REASON_LENGTH) {
+		return g_flub_toss("Unable to read Shutdown packet: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	shutdown->reason[GLS_SHUTDOWN_REASON_LENGTH - 1] = '\0';
+	if (!(len = strlen(shutdown->reason))) {
+		return NULL;
+	}
+	for (i = 0; i < len; i++) {
+		if (!isprint(shutdown->reason[i])) {
+			return g_flub_toss("Invalid shutdown reason char at "
+				"'%i'", i);
+		}
+	}
+	return NULL;
+}
+
+struct flub* gls_shutdown_write(struct gls_shutdown* shutdown, int fd) {
+	char* buf;
+	char* cur;
+	int32_t len;
+
+	// Get buffer.
+	buf = pthread_getspecific(gls_key);
+	if (!buf) {
+		return g_flub_toss("Unable to get buffer");
+	}
+
+	// Prepare header.
+	cur = buf;
+	gls_header_marshal(cur, GLS_EVENT_SHUTDOWN);
+	cur += len = sizeof(len);
+
+	// Prepare player part.
+	memcpy(cur, shutdown->reason, GLS_SHUTDOWN_REASON_LENGTH);
+	len += GLS_SHUTDOWN_REASON_LENGTH;
+
+	// Write data.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write shutdown: '%s'",
+			g_serr(errno));
+	}
+	return NULL;
 }
 
 ssize_t gls_writen(int fd, void* buffer, size_t count) {

@@ -166,6 +166,22 @@ This packet informs players when another player has joined the game.
 
 This packet informs players when another player has parted (left) the game.
 
+1.8 Shutdown
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                            Reason                             |
+  |                                                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  Reason:  64 bytes
+
+    A C-string containing the reason for the server shutdown.
+
+This packets informs player when the server shuts down, and the reason field
+specifies why the server shutdown.
+
 2. Client State
 
 Clients have various states as they connect to and exchange data across the
@@ -232,7 +248,7 @@ requested nickname.
 In the AUTHENTICATED state the server responds to various client packets
 corresponding to the actual playing of the game.  If the server receives an
 unexpected event type, the client MUST be immediately disconnected and moved
-to the DISCONNECTED state.  If the server receives a remote hang-up, it must
+to the DISCONNECTED state.  If the server receives a remote hang-up, it MUST
 disconnect the client and move it to the DISCONNECTED state.  If the server
 receives a malformed packet it MUST disconnect the client and move it to the
 DISCONNECTED state.
@@ -300,3 +316,8 @@ joined the game.  The client MUST inform the user of the new client.
 4.4.5 Player Part
 The server will send the client a Player Part packet when another client has
 left the game.  The client MUST inform the user of the departed client.
+
+4.4.6 Shutdown
+The server sends the shutdown packet when it shuts down.  The client MUST
+display the reason (if available) for the shutdown to the user and the client
+MUST move itself back to the DISCONNECTED state.
