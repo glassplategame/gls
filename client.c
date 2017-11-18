@@ -99,10 +99,10 @@ int main(int argc, char* argv[]) {
 	int ret;
 
 	// Set up the globals.
-	// FIXME: Don't bypass the proper init method.
-	g_log.fd = STDOUT_FILENO;
-	g_log.level = LOG_DEBUG;
-	g_log.header = 0;
+	if (log_init(&g_log, NULL, LOG_DEBUG, 0) == -1) {
+		fprintf(stderr, "Unable to open log, QUITTING!");
+		exit(EXIT_FAILURE);
+	}
 	if ((ret = g_serr_init())) {
 		g_log_error("Unable to create system error buffer");
 		exit(EXIT_FAILURE);

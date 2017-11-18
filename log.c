@@ -20,25 +20,61 @@
 #include "log.h"
 
 int log_free(struct log* log) {
+	char* tchr;
+	char* tstr;
+	time_t tval;
+
+	// Write close message.
+	if (log->header) {
+		tval = time(NULL);
+		tstr = tval == -1 ? "unknown" : ctime(&tval);
+		tchr = strchr(tstr, '\n');
+		if (tchr) {
+			*tchr = '\0';
+		}
+		log_info(log, "Log closed at %s",
+			tval == -1 ? "unknown" : tstr);
+	}
+
 	// Close log file.
 	return close(log->fd);
 }
 
-int log_init(struct log* log, char* path, enum log_level level) {
+int log_init(struct log* log, char* path, enum log_level level, int header) {
 	int fd;
+	char* tchr;
+	char* tstr;
+	time_t tval;
 
 	// Open log file.
-	if ((fd = open(path, O_APPEND | O_CREAT | O_WRONLY, 0600)) == -1) {
-		snprintf(log->buffer, sizeof(log->buffer),
-			"Unable to open log file at '%s'", path);
-		perror(log->buffer);
-		return -1;
+	if (path) {
+		if ((fd = open(path, O_APPEND | O_CREAT | O_WRONLY, 0600))
+			== -1) {
+			snprintf(log->buffer, sizeof(log->buffer),
+				"Unable to open log file at '%s'", path);
+			perror(log->buffer);
+			return -1;
+		}
+		log->fd = fd;
+	} else {
+		log->fd = STDOUT_FILENO;
 	}
-	log->fd = fd;
 
 	// Set log level.
 	log->level = level;
-	log->header = 1;
+	log->header = header;
+
+	// Write open message.
+	if (header) {
+		tval = time(NULL);
+		tstr = tval == -1 ? "unknown" : ctime(&tval);
+		tchr = strchr(tstr, '\n');
+		if (tchr) {
+			*tchr = '\0';
+		}
+		log_info(log, "Log opened at %s",
+			tval == -1 ? "unknown" : tstr);
+	}
 
 	// Return success.
 	return 0;

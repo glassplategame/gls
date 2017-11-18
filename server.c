@@ -381,7 +381,7 @@ int main(int argc, char* argv[]) {
 	int ret;
 
 	// Open log file.
-	if (log_init(&g_log, "./glsd.log", LOG_DEBUG) == -1) {
+	if (log_init(&g_log, "./glsd.log", LOG_DEBUG, 1) == -1) {
 		// Have the logger write to 'stdout'.
 		// Hacky, but reasonable, me thinks.
 		g_log.fd = STDOUT_FILENO;

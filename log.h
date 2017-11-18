@@ -26,6 +26,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 /**
@@ -68,9 +69,11 @@ struct log {
 int log_free(struct log* log);
 
 /**
- * Initialize the logger at the specified file path.
+ * Initialize the logger at the specified file path.  Supply a nonzero value
+ * for header to exclude the log level in the message, and an empty path to
+ * use stdout (hacks for the C client implementation).
  */
-int log_init(struct log* log, char* path, enum log_level level);
+int log_init(struct log* log, char* path, enum log_level level, int header);
 
 /**
  * Internal function that actually writes and catches log errors using the
