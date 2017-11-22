@@ -445,23 +445,23 @@ int main(int argc, char* argv[]) {
 	ret = g_serr_init();
 	if (ret) {
 		g_log_error("Unable to setup system error buffer");
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
 	if (ret) {
 		g_log_error("Error creating flub key: '%s'", g_serr(ret));
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 	ret = g_flub_init();
 	if (ret) {
 		g_log_error("Unable to initialize flub: '%s'", g_serr(ret));
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 	flub = gls_init();
 	if (flub) {
 		g_log_error("Unable to initialize gls buffer: '%s'",
 			flub->message);
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 
 	// Ignore 'SIGPIPE' signals.
@@ -471,7 +471,7 @@ int main(int argc, char* argv[]) {
 	// the 'sigaction' system call.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		g_log_error("Unable to ignore SIGPIPE: '%s'", g_serr(errno));
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 
 	// Handle 'SIGINT' and 'SIGTERM' signals.
@@ -481,12 +481,12 @@ int main(int argc, char* argv[]) {
 	if (sigaction(SIGINT, &sa, NULL) == -1) {
 		g_log_error("Unable to setup SIGINT handler: '%s'",
 			g_serr(errno));
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 	if (sigaction(SIGTERM, &sa, NULL) == -1) {
 		g_log_error("Unable to setup SIGTERM handler: '%s'",
 			g_serr(errno));
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 
 	// Setup server.
@@ -494,7 +494,7 @@ int main(int argc, char* argv[]) {
 	if (flub) {
 		log_error(&g_log, "Unable to initialize server: '%s'",
 			flub->message);
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 
 	// Run the server.
@@ -502,12 +502,23 @@ int main(int argc, char* argv[]) {
 	flub = server_run(&server);
 	if (flub) {
 		log_error(&g_log, "Error running server: '%s'", flub->message);
-		exit(EXIT_FAILURE);
+		goto err;
 	}
 
 	// Stop logging.
-	log_free(&g_log);
+	if (log_free(&g_log) == -1) {
+		fprintf(stderr, "Unable to close log file: '%s'",
+			strerror(errno));
+	}
 
 	// Exit the program.
 	exit(EXIT_SUCCESS);
+
+err:
+	// Stop logging.
+	if (log_free(&g_log) == -1) {
+		fprintf(stderr, "Unable to close log file: '%s'",
+			strerror(errno));
+	}
+	exit(EXIT_FAILURE);
 }
