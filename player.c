@@ -233,11 +233,6 @@ void* player_thread(void* v_player) {
 		g_log_error("Unable to setup system error buffer");
 		goto out;
 	}
-	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
-	if (ret) {
-		g_log_error("Error creating flub key: '%s'", g_serr(ret));
-		goto out;
-	}
 	ret = g_flub_init();
 	if (ret) {
 		g_log_error("Unable to initialize flub: '%s'", g_serr(ret));

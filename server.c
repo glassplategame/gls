@@ -284,7 +284,7 @@ struct flub* server_run(struct server* server) {
 		do {
 			// Build pollfd list.
 			pollfd_count = 0;
-			memset(&pollfds, 0, sizeof(pollfds));
+			memset(pollfds, 0, sizeof(pollfds));
 			for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 				if (!server->players[i].connected) {
 					// Invalid player slot.
@@ -445,11 +445,6 @@ int main(int argc, char* argv[]) {
 	ret = g_serr_init();
 	if (ret) {
 		g_log_error("Unable to setup system error buffer");
-		goto err;
-	}
-	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
-	if (ret) {
-		g_log_error("Error creating flub key: '%s'", g_serr(ret));
 		goto err;
 	}
 	ret = g_flub_init();

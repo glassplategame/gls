@@ -107,11 +107,6 @@ int main(int argc, char* argv[]) {
 		g_log_error("Unable to create system error buffer");
 		exit(EXIT_FAILURE);
 	}
-	ret = pthread_key_create(&g_flub_key, g_flub_destructor);
-	if (ret) {
-		g_log_error("Error creating flub key: '%s'", g_serr(ret));
-		exit(EXIT_FAILURE);
-	}
 	ret = g_flub_init();
 	if (ret) {
 		g_log_error("Unable to initialize flub: '%s'", g_serr(ret));

@@ -28,21 +28,46 @@ void g_flub_destructor(void* flub) {
 
 int g_flub_init() {
 	struct flub* flub;
+	static int key_created = 0;
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	int ret;
+	int ret2;
 
-	// Create thread-specific flub.
-	flub = (struct flub*)pthread_getspecific(g_flub_key);
-	if (flub) {
-		// Already exists.
-		return 0;
+	// Initialize key.
+	ret = pthread_mutex_lock(&mutex);
+	if (ret) {
+		g_log_error("Unable to lock mutex: '%s'", g_serr(ret));
+		return -1;
 	}
+	if (!key_created) {
+		ret = pthread_key_create(&g_flub_key, g_flub_destructor);
+		if (ret) {
+			g_log_error("Unable to create key: '%s'", g_serr(ret));
+			goto unlock;
+		}
+		key_created = 1;
+	}
+unlock:
+	ret2 = pthread_mutex_unlock(&mutex);
+	if (ret2) {
+		g_log_error("Mutex unlock failed: '%s'", g_serr(ret2));
+	}
+	if (ret || ret2) {
+		return -1;
+	}
+
+	// Initialize buffer.
 	flub = (struct flub*)malloc(sizeof(struct flub));
 	if (!flub) {
-		return errno;
+		g_log_error("Unable to allocate flub buffer");
+		return -1;
 	}
-	ret = pthread_setspecific(g_flub_key, (const void*)flub);
+
+	// Set buffer.
+	ret = pthread_setspecific(g_flub_key, flub);
 	if (ret) {
-		return ret;
+		g_log_error("Unable to set pthread buffer: '%s'", g_serr(ret));
+		return -1;
 	}
 	return 0;
 }
@@ -94,6 +119,7 @@ int g_serr_init() {
 	int ugh;
 
 	// Initialize key.
+	// TODO: Use strerror_r for errors.
 	ugh = 0;
 	ret = pthread_mutex_lock(&mutex);
 	if (ret) {

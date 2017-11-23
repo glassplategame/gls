@@ -159,11 +159,6 @@ struct flub* gls_init();
 void gls_init_destructor(void* buffer);
 
 /**
- * Private key-initialization function.
- */
-void gls_init_once();
-
-/**
  * Read the nick change notification from the specified file descriptor.
  */
 struct flub* gls_nick_change_read(struct gls_nick_change* change, int fd,
