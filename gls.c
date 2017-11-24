@@ -388,6 +388,12 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 	case GLS_EVENT_SHUTDOWN:
 		flub = gls_shutdown_read(&packet->data.shutdown, fd, validate);
 		break;
+	case GLS_EVENT_SAY1:
+		flub = gls_say1_read(&packet->data.say1, fd, validate);
+		break;
+	case GLS_EVENT_SAY2:
+		flub = gls_say2_read(&packet->data.say2, fd, validate);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -427,6 +433,12 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 		break;
 	case GLS_EVENT_SHUTDOWN:
 		flub = gls_shutdown_write(&packet->data.shutdown, fd);
+		break;
+	case GLS_EVENT_SAY1:
+		flub = gls_say1_write(&packet->data.say1, fd);
+		break;
+	case GLS_EVENT_SAY2:
+		flub = gls_say2_write(&packet->data.say2, fd);
 		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
@@ -699,6 +711,144 @@ ssize_t gls_readn(int fd, void* buffer, size_t count) {
 
 ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt) {
 	return gls_rdwrvn(fd, iov, iovcnt, readv);
+}
+
+struct flub* gls_say_message_validate(char* message) {
+	int i;
+
+	// Validate message.
+	for (i = 0; i < GLS_SAY_MESSAGE_LENGTH; i++) {
+		if (message[i] == '\0') {
+			break;
+		}
+		if (!isprint(message[i])) {
+			return g_flub_toss("Invalid Say message character at "
+				"index '%i'", i);
+		}
+	}
+	if (i == GLS_SAY_MESSAGE_LENGTH) {
+		return g_flub_toss("Unterminated message");
+	} else if (!i) {
+		return g_flub_toss("Empty message");
+	}
+	return NULL;
+}
+
+struct flub* gls_say1_read(struct gls_say1* say, int fd, int validate) {
+	struct flub* flub;
+
+	// Read packet.
+	memset(say, 0, sizeof(struct gls_say1));
+	if (gls_readn(fd, say->message, GLS_SAY_MESSAGE_LENGTH) <
+		GLS_SAY_MESSAGE_LENGTH) {
+		return g_flub_toss("Unable to read Say1 packet: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	if ((flub = gls_say_message_validate(say->message))) {
+		return flub_append(flub, "reading say1 packet");
+	}
+	return NULL;
+}
+
+struct flub* gls_say1_write(struct gls_say1* say, int fd) {
+	char* buf;
+	char* cur;
+	size_t len;
+
+	// Get buffer.
+	if (!(buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get buffer");
+	}
+
+	// Marshal header.
+	cur = buf;
+	gls_header_marshal(cur, GLS_EVENT_SAY1);
+	cur += len = 4;
+
+	// Prepare buffer.
+	strlcpy(cur, say->message, GLS_SAY_MESSAGE_LENGTH);
+	cur += GLS_SAY_MESSAGE_LENGTH;
+	len += GLS_SAY_MESSAGE_LENGTH;
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write Say1 packet");
+	}
+	return NULL;
+}
+
+struct flub* gls_say2_read(struct gls_say2* say, int fd, int validate) {
+	struct flub* flub;
+	struct iovec iovs[3];
+	size_t len;
+
+	len = 0;
+	iovs[0].iov_base = &say->nick;
+	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	iovs[1].iov_base = &say->tval;
+	len += iovs[1].iov_len = sizeof(uint64_t);
+	iovs[2].iov_base = &say->message;
+	len += iovs[2].iov_len = GLS_SAY_MESSAGE_LENGTH;
+
+	// Read in data.
+	memset(say, 0, sizeof(struct gls_say2));
+	if (gls_readvn(fd, iovs, 3) < len) {
+		return g_flub_toss("Unable to read Say2 packet: '%s'",
+			g_serr(errno));
+	}
+	say->tval = be64toh(say->tval);
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	if ((flub = gls_nick_validate(say->nick, 0))) {
+		return flub_append(flub, "reading Say2 packet");
+	}
+	if ((flub = gls_say_message_validate(say->message))) {
+		return flub_append(flub, "reading Say2 packet");
+	}
+	return NULL;
+}
+
+struct flub* gls_say2_write(struct gls_say2* say, int fd) {
+	char* buf;
+	char* cur;
+	size_t len;
+	uint64_t time;
+
+	// Get buffer.
+	buf = pthread_getspecific(gls_key);
+	if (!buf) {
+		return g_flub_toss("Unable to get buffer");
+	}
+	cur = buf;
+
+	// Marshal header.
+	gls_header_marshal(cur, GLS_EVENT_SAY2);
+	cur += len = 4;
+
+	// Prepare buffer.
+	strlcpy(cur, say->nick, GLS_NAME_LENGTH);
+	cur += GLS_NAME_LENGTH;
+	len += GLS_NAME_LENGTH;
+	time = htobe64(say->tval);
+	memcpy(cur, &time, sizeof(uint64_t));
+	cur += sizeof(uint64_t);
+	len += sizeof(uint64_t);
+	strlcpy(cur, say->message, GLS_SAY_MESSAGE_LENGTH);
+	len += GLS_SAY_MESSAGE_LENGTH;
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write Say2 packet");
+	}
+	return NULL;
 }
 
 struct flub* gls_shutdown_read(struct gls_shutdown* shutdown, int fd,

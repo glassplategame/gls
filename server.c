@@ -129,18 +129,51 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 			return flub_append(flub, "processing player data");
 		}
 	} else { // Client generated packet.
-		// Read nick request.
-		if (packet_in.header.event != GLS_EVENT_NICK_REQ) {
-			// Unsupported event.
-			return g_flub_toss("Unsupported event type from "
-				"player");
-		}
+		int i;
+		struct gls_say1* say1;
+		struct gls_say2* say2;
 
-		// Process nick request.
-		flub = server_player_nick(server, player,
-			&packet_in.data.nick_req);
-		if (flub) {
-			return flub_append(flub, "processing player data");
+		switch(packet_in.header.event) {
+		case GLS_EVENT_NICK_REQ:
+			// Process nick request.
+			flub = server_player_nick(server, player,
+				&packet_in.data.nick_req);
+			if (flub) {
+				return flub_append(flub, "processing player "
+					"data");
+			}
+			break;
+		case GLS_EVENT_SAY1:
+			// Prepare say2 packet.
+			say1 = &packet_in.data.say1;
+			say2 = &packet_out.data.say2;
+			memset(say2, 0, sizeof(struct gls_say2));
+			strlcpy(say2->nick, player->name, GLS_NAME_LENGTH);
+			say2->tval = (uint64_t)time(NULL);
+			if (say2->tval == (uint64_t)-1) {
+				return g_flub_toss("Unable to get time for "
+					"Say2 packet: '%s'", g_serr(errno));
+			}
+			strlcpy(say2->message, say1->message,
+				GLS_SAY_MESSAGE_LENGTH);
+
+			// Send say2 packets.
+			for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+				// Send packet to each player.
+				if (!server->players[i].authenticated) {
+					continue;
+				}
+				if ((flub = gls_say2_write(say2,
+					server->players[i].sockfd))) {
+					g_log_warn("Unable to message player "
+						"'%i': '%s'", i, flub->message);
+					player_kill(&server->players[i]);
+				}
+			}
+			break;
+		default:
+			return g_flub_toss("Unsupported event type '%i' from "
+				"player", packet_in.header.event);
 		}
 	}
 	return NULL;
@@ -236,7 +269,7 @@ struct flub* server_run(struct server* server) {
 	server->running = 1;
 	while (server->running) {
 		int connection;
-		int pollfd_count;
+		nfds_t pollfd_count;
 		struct pollfd pollfds[SERVER_PLAYER_MAX];
 		int ret;
 		socklen_t socklen;

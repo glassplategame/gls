@@ -22,6 +22,8 @@
 #ifndef client_H
 #define client_H
 
+#include "include.h"
+
 #include <bsd/string.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -30,6 +32,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "board.h"

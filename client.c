@@ -187,8 +187,10 @@ int main(int argc, char* argv[]) {
 
 	// Play the game (main loop).
 	done = 0;
-	regex_t regex_nick_pre;
 	regex_t regex_nick_post;
+	regex_t regex_nick_pre;
+	regex_t regex_say_post;
+	regex_t regex_say_pre;
 	regmatch_t regmatch[2];
 	if ((ret = regcomp(&regex_nick_pre, "^\\s*nick\\s*.*$",
 		REG_EXTENDED | REG_NOSUB))) {
@@ -197,6 +199,14 @@ int main(int argc, char* argv[]) {
 	} else if ((ret = regcomp(&regex_nick_post, "^\\s*nick\\s++(\\w+)\\s*$",
 		REG_EXTENDED))) {
 		g_log_error("Unable to compile 2nd nick regex: '%i'", ret);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_say_pre, "^\\s*say\\s*.*$",
+		REG_EXTENDED | REG_NOSUB))) {
+		g_log_error("Unable to compile 1st say regex: '%i'", ret);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_say_post, "^\\s*say\\s+([^\\s].*)$",
+		REG_EXTENDED))) {
+		g_log_error("Unable to compile 2nd say regex: '%i'", ret);
 		exit(EXIT_FAILURE);
 	}
 	while (!done) {
@@ -207,6 +217,10 @@ int main(int argc, char* argv[]) {
 
 		// Read data from server.
 		do {
+			time_t tval;
+			struct tm tm;
+			char tstr[10];
+
 			// Check for data from server.
 			if (ioctl(client.sockfd, FIONREAD, &ret) == -1) {
 				g_log_error("Unable to peek socket read end: "
@@ -256,6 +270,28 @@ int main(int argc, char* argv[]) {
 				g_log_info("Server shutdown: '%s'",
 					packet.data.shutdown.reason);
 				done = 1;
+				break;
+			case (GLS_EVENT_SAY2):
+				// Format time.
+				tval = (time_t)packet.data.say2.tval;
+				if (localtime_r(&tval, &tm) == NULL) {
+					g_log_warn("Unable to get localtime: "
+						"'%s'", g_serr(errno));
+					strlcpy(tstr, "??:??", sizeof(tstr));
+				} else {
+					if (!strftime(tstr, sizeof(tstr),
+						"%H:%M", &tm)) {
+						g_log_warn("Unable to format "
+							"time string");
+						strlcpy(tstr, "??:??",
+							sizeof(tstr));
+					}
+				}
+
+				// Display message.
+				g_log_info("%s %s: %s", tstr,
+					packet.data.say2.nick,
+					packet.data.say2.message);
 				break;
 			default:
 				g_log_error("Unknown event: '%i'",
@@ -405,6 +441,34 @@ int main(int argc, char* argv[]) {
 		} else if (!strcmp(command, "quit")) {
 			// Quit the game.
 			done = 1;
+		} else if (!regexec(&regex_say_pre, command, 2, NULL, 0)) {
+			struct gls_say1 say;
+
+			// Check for say argument.
+			if (regexec(&regex_say_post, command, 2, regmatch,
+				0)) {
+				g_log_warn("Unable to parse message");
+				continue;
+			}
+
+			// Prepare Say1 packet.
+			memset(&say, 0, sizeof(struct gls_say1));
+			if (strlcpy(say.message, &command[regmatch[1].rm_so],
+				GLS_SAY_MESSAGE_LENGTH) >=
+				GLS_SAY_MESSAGE_LENGTH) {
+				// TODO: Break long messages into little
+				// messages.
+				g_log_warn("Message too long; must be less "
+					"than '%i' characters",
+					GLS_SAY_MESSAGE_LENGTH);
+				continue;
+			}
+
+			// Write Say1 packet to server.
+			if ((flub = gls_say1_write(&say, client.sockfd))) {
+				g_log_warn("Unable to send message: '%s'",
+					flub->message);
+			}
 		} else {
 			// Unknown command.
 			log_info(&g_log, "Command not recognized");

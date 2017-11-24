@@ -19,9 +19,12 @@
 #ifndef gls_H
 #define gls_H
 
+#include "include.h"
+
 #include <arpa/inet.h>
 #include <bsd/string.h>
 #include <ctype.h>
+#include <endian.h>
 #include <stdint.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -106,6 +109,21 @@ struct gls_protoverack {
 };
 
 /**
+ * Player message packets.
+ * "say1" is from the player to the server.
+ * "say2" is from the server to each of the players.
+ */
+#define GLS_SAY_MESSAGE_LENGTH 256
+struct gls_say1 {
+	char message[GLS_SAY_MESSAGE_LENGTH];
+};
+struct gls_say2 {
+	char nick[GLS_NAME_LENGTH];
+	uint64_t tval;
+	char message[GLS_SAY_MESSAGE_LENGTH];
+};
+
+/**
  * Server shutdown packet.
  */
 #define GLS_SHUTDOWN_REASON_LENGTH 64
@@ -122,6 +140,8 @@ struct gls_shutdown {
 #define GLS_EVENT_PLAYER_JOIN		0x00000006
 #define GLS_EVENT_PLAYER_PART		0x00000007
 #define GLS_EVENT_SHUTDOWN		0x00000008
+#define GLS_EVENT_SAY1			0x00000009
+#define GLS_EVENT_SAY2			0x0000000A
 
 // Union of all packets.
 struct gls_packet {
@@ -135,6 +155,8 @@ struct gls_packet {
 		struct gls_player_join player_join;
 		struct gls_player_part player_part;
 		struct gls_shutdown shutdown;
+		struct gls_say1 say1;
+		struct gls_say2 say2;
 	} data;
 };
 
@@ -265,6 +287,31 @@ ssize_t gls_readn(int fd, void* buffer, size_t count);
  * Returns the number of bytes read, or -1 on error.
  */
 ssize_t gls_readvn(int fd, struct iovec* iov, int iovcnt);
+
+/**
+ * Validate say message.
+ */
+struct flub* gls_say_message_validate(char* message);
+
+/**
+ * Read the specified Say1 packet from the specified file descriptor.
+ */
+struct flub* gls_say1_read(struct gls_say1* say, int fd, int validate);
+
+/**
+ * Write the specified Say1 packet to the specified file descriptor.
+ */
+struct flub* gls_say1_write(struct gls_say1* say, int fd);
+
+/**
+ * Read the specified Say2 packet from the specified file descriptor.
+ */
+struct flub* gls_say2_read(struct gls_say2* say, int fd, int validate);
+
+/**
+ * Write the specified Say2 packet to the specified file descriptor.
+ */
+struct flub* gls_say2_write(struct gls_say2* say, int fd);
 
 /**
  * Read the specified Shutdown packet from the specified file descriptor.

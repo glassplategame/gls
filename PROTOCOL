@@ -171,8 +171,8 @@ This packet informs players when another player has parted (left) the game.
    0                   1                   2                   3
    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  |                            Reason                             |
-  |                                                               |
+  |                            Reason                             >
+  >                                                               |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
   Reason:  64 bytes
@@ -181,6 +181,63 @@ This packet informs players when another player has parted (left) the game.
 
 This packets informs player when the server shuts down, and the reason field
 specifies why the server shutdown.
+
+1.9 Say1
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                                                               >
+  >                                                               >
+  >                                                               >
+  >                           Message                             >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  Message:  256 bytes
+
+    A C-string containing the message that the player wishes to send. The
+    string MUST consist of only printable ASCII characters.
+
+This packet is sent from the player to the server when the player wishes to
+send a message to the players.
+
+1.10 Say2
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                             Nick                              |
+  |       Time      |                                             >
+  >                                                               >
+  >                                                               >
+  >                            Message                            >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                 |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+-+-+
+
+  Nick:  32 bytes
+
+    A C-string containing the name of the user which sent the message.
+
+  Time:  8 bytes
+
+    A unisgned 64-bit integer representing the time that the message was sent
+    as seconds since the UNIX Epoch.
+
+  Message:  256 bytes
+
+    A C-string containing the message that the user sent.  The string MUST
+    consist of only printable ASCII characters.
+
+This packet is sent from the server to each player in order to inform each
+player of another's player's message.
 
 2. Client State
 
@@ -261,6 +318,15 @@ specified nickname or a reason why the client will retain their current
 nickname. If the client's nickname is changed, the server MUST also send a Nick
 Change packet to every other client in the AUTHENTICATED state.
 
+3.4.2 Say1
+
+Client sends server a message that the client wishes to send to all of the
+other players.  The server MAY choose to modify the message for propriety
+before sending, but ought to avoid evil modifications.  The server MUST then
+send the message as a Say2 packet to all clients in the AUTHENTICATED state,
+including the one that sent the original message (the message is echo'd back
+to the client).
+
 4. Client
 
 4.1 DISCONNECTED
@@ -321,3 +387,8 @@ left the game.  The client MUST inform the user of the departed client.
 The server sends the shutdown packet when it shuts down.  The client MUST
 display the reason (if available) for the shutdown to the user and the client
 MUST move itself back to the DISCONNECTED state.
+
+4.4.7 Say2
+The server sends a Say2 packet when another player has sent a message.  The
+client MUST display the sender's nick and message to the user and MAY display
+the time of the message.
