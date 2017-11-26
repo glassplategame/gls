@@ -113,25 +113,25 @@ void g_serr_destructor(void* buffer) {
 
 int g_serr_init() {
 	char* buffer;
+	char error[64];
 	static int key_created = 0;
 	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	int ret;
 	int ugh;
 
 	// Initialize key.
-	// TODO: Use strerror_r for errors.
 	ugh = 0;
 	ret = pthread_mutex_lock(&mutex);
 	if (ret) {
 		g_log_error("Unable to lock mutex: '%s'",
-			strerror(ret)); // Unsafe.
+			strerror_r(ret, error, sizeof(error)));
 		return -1;
 	}
 	if (!key_created) {
 		ugh = pthread_key_create(&g_serr_key, g_serr_destructor);
 		if (ugh) {
 			g_log_error("Unable to create key: '%s'",
-				strerror(ret)); // Unsafe.
+				strerror_r(ret, error, sizeof(error)));
 			goto unlock;
 		}
 		key_created = 1;
@@ -140,7 +140,7 @@ unlock:
 	ret = pthread_mutex_unlock(&mutex);
 	if (ret) {
 		g_log_error("Mutex unlock failed: '%s'",
-			strerror(ret)); // Unsafe.
+			strerror_r(ret, error, sizeof(error)));
 	}
 	if (ugh || ret) {
 		return -1;
@@ -157,7 +157,7 @@ unlock:
 	ret = pthread_setspecific(g_serr_key, buffer);
 	if (ret) {
 		g_log_error("Unable to set pthread buffer: '%s'",
-			strerror(ret)); // Unsafe.
+			strerror_r(ret, error, sizeof(error)));
 		return -1;
 	}
 	return 0;
