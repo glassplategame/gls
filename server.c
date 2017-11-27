@@ -148,7 +148,7 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 			say1 = &packet_in.data.say1;
 			say2 = &packet_out.data.say2;
 			memset(say2, 0, sizeof(struct gls_say2));
-			strlcpy(say2->nick, player->name, GLS_NAME_LENGTH);
+			strlcpy(say2->nick, player->nick, GLS_NICK_LENGTH);
 			say2->tval = (uint64_t)time(NULL);
 			if (say2->tval == (uint64_t)-1) {
 				return g_flub_toss("Unable to get time for "
@@ -166,7 +166,9 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 				if ((flub = gls_say2_write(say2,
 					server->players[i].sockfd))) {
 					g_log_warn("Unable to message player "
-						"'%i': '%s'", i, flub->message);
+						"'%s': '%s'",
+						player_name(&server->players[i]),
+						flub->message);
 					player_kill(&server->players[i]);
 				}
 			}
@@ -190,8 +192,8 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 	memset(&set, 0, sizeof(struct gls_nick_set));
 	memset(&change, 0, sizeof(struct gls_nick_change));
 	for (i = 0; i < SERVER_PLAYER_MAX; i++) {
-		if (!strncmp(server->players[i].name, req->nick,
-			GLS_NAME_LENGTH)) {
+		if (!strncmp(server->players[i].nick, req->nick,
+			GLS_NICK_LENGTH)) {
 			// Nick already in use.
 			strlcpy(set.reason, "Already in use",
 				GLS_NICK_SET_REASON);
@@ -200,13 +202,13 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 	}
 	if (i == SERVER_PLAYER_MAX) {
 		// Nick not in use.
-		strlcpy(change.old, player->name, GLS_NAME_LENGTH);
-		strlcpy(change.new, req->nick, GLS_NAME_LENGTH);
-		strlcpy(player->name, req->nick, GLS_NAME_LENGTH);
-		strlcpy(set.nick, req->nick, GLS_NAME_LENGTH);
+		strlcpy(change.old, player->nick, GLS_NICK_LENGTH);
+		strlcpy(change.new, req->nick, GLS_NICK_LENGTH);
+		strlcpy(player->nick, req->nick, GLS_NICK_LENGTH);
+		strlcpy(set.nick, req->nick, GLS_NICK_LENGTH);
 	}
 	g_log_info("Player '%s' requested nick '%s' (%s)",
-		player->authenticated ? set.nick[0] == '\0' ? player->name :
+		player->authenticated ? set.nick[0] == '\0' ? player->nick :
 		change.old : "(unauthenticated)",
 		req->nick, set.nick[0] == '\0' ? set.reason : "accepted");
 	flub = gls_nick_set_write(&set, player->sockfd);
@@ -226,7 +228,7 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 
 		// Inform other players of join.
 		memset(&join, 0, sizeof(join));
-		strlcpy(join.nick, player->name, GLS_NAME_LENGTH);
+		strlcpy(join.nick, player->nick, GLS_NICK_LENGTH);
 		for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 			if (!server->players[i].authenticated ||
 				player == &server->players[i]) {
@@ -235,8 +237,10 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 			}
 			if ((flub = gls_player_join_write(&join,
 				server->players[i].sockfd))) {
-				g_log_warn("Unable to inform player '%i' of "
-					"player join: %s", i, flub->message);
+				g_log_warn("Unable to inform player '%s' of "
+					"player join: %s",
+					player_name(&server->players[i]),
+					flub->message);
 				player_kill(&server->players[i]);
 			}
 		}
@@ -250,8 +254,10 @@ struct flub* server_player_nick(struct server* server, struct player* player,
 			}
 			if ((flub = gls_nick_change_write(&change,
 				server->players[i].sockfd))) {
-				g_log_warn("Unable to inform player '%i' of "
-					"nick change: %s", i, flub->message);
+				g_log_warn("Unable to inform player '%s' of "
+					"nick change: %s",
+					player_name(&server->players[i]),
+					flub->message);
 				player_kill(&server->players[i]);
 			}
 		}
@@ -283,7 +289,7 @@ struct flub* server_run(struct server* server) {
 
 			// Find player slot.
 			player = NULL;
-			g_log_debug("New connection");
+			g_log_debug("New connection"); // TODO: Conn info.
 			for (i = 0; i < SERVER_PLAYER_MAX; i++) {
 				if (server->players[i].connected) {
 					// Player slot in use.
@@ -364,14 +370,14 @@ struct flub* server_run(struct server* server) {
 					pollfd->revents & POLLRDHUP) {
 					struct gls_player_part part;
 
-					// Save player name.
+					// Save player nick.
 					memset(&part, 0, sizeof(part));
-					strlcpy(part.nick, player->name,
-						GLS_NAME_LENGTH);
+					strlcpy(part.nick, player->nick,
+						GLS_NICK_LENGTH);
 
 					// Player thread done.
 					g_log_info("Freeing player '%s'",
-						player->name);
+						player->nick);
 					player_free(player, flub);
 					if (flub) {
 						g_log_warn("Player error: '%s'",
@@ -387,8 +393,9 @@ struct flub* server_run(struct server* server) {
 						}
 						if ((flub = gls_player_part_write(
 							&part, server->players[i].sockfd))) {
-							g_log_warn("Unable to inform player '%i' of part: %s",
-								i, flub->message);
+							g_log_warn("Unable to inform player '%s' of part: %s",
+								player_name(&server->players[i]),
+								flub->message);
 							player_kill(&server->players[i]);
 						}
 					}
@@ -445,7 +452,7 @@ struct flub* server_run(struct server* server) {
 		}
 		if ((flub = gls_shutdown_write(&shutdown, player->sockfd))) {
 			g_log_error("Unable to inform player '%s' of shutdown: "
-				"'%s'", player->name, flub->message);
+				"'%s'", player_name(player), flub->message);
 		}
 
 		// Remove the player.

@@ -218,6 +218,31 @@ struct flub* player_kill(struct player* player) {
 	return NULL;
 }
 
+char* player_name(struct player* player) {
+	if (!player->connected) {
+		// Not connected.
+		strlcpy(player->name, "(nobody)", GLS_NICK_LENGTH);
+	} else if (!player->protoverokay || !player->authenticated) {
+		// Socket metadata.
+		socklen_t addrlen;
+		struct sockaddr_in addr;
+
+		memset(&addr, 0, sizeof(struct sockaddr_in));
+		addrlen = sizeof(struct sockaddr_in);
+		if (getpeername(player->sockfd, &addr, &addrlen) == -1) {
+			strlcpy(player->name, "(error)", GLS_NICK_LENGTH);
+		}
+		snprintf(player->name, GLS_NICK_LENGTH, "%s port %u",
+			inet_ntoa(addr.sin_addr),
+			(unsigned)ntohs(addr.sin_port));
+		player->name[GLS_NICK_LENGTH - 1] = '\0';
+	} else {
+		// Player nickname.
+		strlcpy(player->name, player->nick, GLS_NICK_LENGTH);
+	}
+	return player->name;
+}
+
 void* player_thread(void* v_player) {
 	const int FD_PIPE = 0;
 	const int FD_SOCKET = 1;

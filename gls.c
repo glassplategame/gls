@@ -147,7 +147,7 @@ struct flub* gls_nick_set_read(struct gls_nick_set* set, int fd,
 	memset(set, 0, sizeof(struct gls_nick_set));
 	len = 0;
 	iovs[0].iov_base = &set->nick;
-	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	len += iovs[0].iov_len = GLS_NICK_LENGTH;
 	iovs[1].iov_base = &set->reason;
 	len += iovs[1].iov_len = GLS_NICK_SET_REASON;
 	if (gls_readvn(fd, iovs, 2) < len) {
@@ -191,9 +191,9 @@ struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd) {
 	len = 4;
 
 	// Prepare nick set.
-	memcpy(cur, set->nick, GLS_NAME_LENGTH);
-	cur += GLS_NAME_LENGTH;
-	len += GLS_NAME_LENGTH;
+	memcpy(cur, set->nick, GLS_NICK_LENGTH);
+	cur += GLS_NICK_LENGTH;
+	len += GLS_NICK_LENGTH;
 	memcpy(cur, set->reason, GLS_NICK_SET_REASON);
 	cur += GLS_NICK_SET_REASON;
 	len += GLS_NICK_SET_REASON;
@@ -217,9 +217,9 @@ struct flub* gls_nick_change_read(struct gls_nick_change* change, int fd,
 	memset(change, 0, sizeof(struct gls_nick_change));
 	len = 0;
 	iovs[0].iov_base = &change->old;
-	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	len += iovs[0].iov_len = GLS_NICK_LENGTH;
 	iovs[1].iov_base = &change->new;
-	len += iovs[1].iov_len = GLS_NAME_LENGTH;
+	len += iovs[1].iov_len = GLS_NICK_LENGTH;
 	if (gls_readvn(fd, iovs, 2) < len) {
 		return g_flub_toss("Unable to read nick change: '%s'",
 			g_serr(errno));
@@ -259,12 +259,12 @@ struct flub* gls_nick_change_write(struct gls_nick_change* change, int fd) {
 	len = 4;
 
 	// Prepare nick change.
-	memcpy(cur, change->old, GLS_NAME_LENGTH);
-	cur += GLS_NAME_LENGTH;
-	len += GLS_NAME_LENGTH;
-	memcpy(cur, change->new, GLS_NAME_LENGTH);
-	cur += GLS_NAME_LENGTH;
-	len += GLS_NAME_LENGTH;
+	memcpy(cur, change->old, GLS_NICK_LENGTH);
+	cur += GLS_NICK_LENGTH;
+	len += GLS_NICK_LENGTH;
+	memcpy(cur, change->new, GLS_NICK_LENGTH);
+	cur += GLS_NICK_LENGTH;
+	len += GLS_NICK_LENGTH;
 
 	// Write packet.
 	if (gls_writen(fd, buf, len) < len) {
@@ -328,7 +328,7 @@ struct flub* gls_nick_validate(char* nick, int empty) {
 	int i;
 
 	// Validate nick characters.
-	for (i = 0; i < GLS_NAME_LENGTH; i++) {
+	for (i = 0; i < GLS_NICK_LENGTH; i++) {
 		if (nick[i] == '\0') {
 			break;
 		}
@@ -337,9 +337,9 @@ struct flub* gls_nick_validate(char* nick, int empty) {
 				"index '%i'", i);
 		}
 	}
-	if (i == GLS_NAME_LENGTH) {
+	if (i == GLS_NICK_LENGTH) {
 		return g_flub_toss("Nick exceeded '%i' characters",
-			GLS_NAME_LENGTH - 1);
+			GLS_NICK_LENGTH - 1);
 	}
 	if (!empty && !strlen(nick)) {
 		return g_flub_toss("Empty nick");
@@ -789,7 +789,7 @@ struct flub* gls_say2_read(struct gls_say2* say, int fd, int validate) {
 
 	len = 0;
 	iovs[0].iov_base = &say->nick;
-	len += iovs[0].iov_len = GLS_NAME_LENGTH;
+	len += iovs[0].iov_len = GLS_NICK_LENGTH;
 	iovs[1].iov_base = &say->tval;
 	len += iovs[1].iov_len = sizeof(uint64_t);
 	iovs[2].iov_base = &say->message;
@@ -834,9 +834,9 @@ struct flub* gls_say2_write(struct gls_say2* say, int fd) {
 	cur += len = 4;
 
 	// Prepare buffer.
-	strlcpy(cur, say->nick, GLS_NAME_LENGTH);
-	cur += GLS_NAME_LENGTH;
-	len += GLS_NAME_LENGTH;
+	strlcpy(cur, say->nick, GLS_NICK_LENGTH);
+	cur += GLS_NICK_LENGTH;
+	len += GLS_NICK_LENGTH;
 	time = htobe64(say->tval);
 	memcpy(cur, &time, sizeof(uint64_t));
 	cur += sizeof(uint64_t);

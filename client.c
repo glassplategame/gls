@@ -31,7 +31,7 @@ struct flub* client_nickname_write(struct client* client, char* nickname) {
 
 	// Attempt to set nickname.
 	memset(&req, 0, sizeof(struct gls_nick_req));
-	strlcpy(req.nick, nickname, GLS_NAME_LENGTH);
+	strlcpy(req.nick, nickname, GLS_NICK_LENGTH);
 	while (1) {
 		// Write nickname to server.
 		flub = gls_nick_req_write(&req, client->sockfd);
@@ -74,7 +74,7 @@ struct flub* client_nickname_write(struct client* client, char* nickname) {
 			}
 			memset(&req, 0, sizeof(struct gls_nick_req));
 			if ((ret = read(STDIN_FILENO, &req.nick,
-				GLS_NAME_LENGTH)) == -1) {
+				GLS_NICK_LENGTH)) == -1) {
 				return g_flub_toss("Unable to read new nick "
 					"req: '%s'", g_serr(errno));
 			}
@@ -415,10 +415,10 @@ int main(int argc, char* argv[]) {
 			memset(&req, 0, sizeof(struct gls_nick_req));
 			len = regmatch[2].rm_eo - regmatch[2].rm_so + 1;
 			if (strlcpy(req.nick, &cmd[regmatch[2].rm_so],
-				len < GLS_NAME_LENGTH ? len : GLS_NAME_LENGTH)
-				>= GLS_NAME_LENGTH) {
+				len < GLS_NICK_LENGTH ? len : GLS_NICK_LENGTH)
+				>= GLS_NICK_LENGTH) {
 				g_log_warn("Nick must be less than '%i' "
-					"characters", GLS_NAME_LENGTH);
+					"characters", GLS_NICK_LENGTH);
 				continue;
 			} else if ((flub = gls_nick_validate(req.nick, 0))) {
 				g_log_warn("Invalid nick: '%s'", flub->message);

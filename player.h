@@ -33,8 +33,10 @@
 struct player {
 	// Thread-specific flub.
 	struct flub flub;
+	// Private buffer for player identification.
+	char name[GLS_NICK_LENGTH];
 	// Player's nickname.
-	char name[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 	// Pipes going to and from the server.
 	int pipe_server_from[2];
 	int pipe_server_to[2];
@@ -66,6 +68,13 @@ struct flub* player_init(struct player* player, int fd);
  * Force player to prepare for player_free.
  */
 struct flub* player_kill(struct player* player);
+
+/**
+ * Returns a statically-allocated human-readable name for the player regardless
+ * of player state (unlike nickname, where the player must be authenticated).
+ * Not reentrant.
+ */
+char* player_name(struct player* player);
 
 /**
  * Thread to buffer data in-between the raw socket and the server.

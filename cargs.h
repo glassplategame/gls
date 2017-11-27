@@ -30,7 +30,7 @@
 // Client arguments.
 struct cargs {
 	// Nickname to use.
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 };
 
 // Print help message for client arguments then exit the program.

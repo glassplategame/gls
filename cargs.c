@@ -46,7 +46,7 @@ struct flub* cargs_parse(struct cargs* args, int argc, char* argv[]) {
 		case 'h':
 			cargs_help(args, NULL);
 		case 'n':
-			strlcpy(args->nick, optarg, GLS_NAME_LENGTH);
+			strlcpy(args->nick, optarg, GLS_NICK_LENGTH);
 			if ((flub = gls_nick_validate(optarg, 0))) {
 				cargs_help(args, flub);
 			}

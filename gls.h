@@ -34,7 +34,7 @@
 // Length of each thread's buffer.
 #define GLS_BUFFER_SIZE 65536
 // Length of a player's name.
-#define GLS_NAME_LENGTH 32
+#define GLS_NICK_LENGTH 32
 // Lower-limit on pipe atomicity.
 #define GLS_PIPE_BUF 4096
 
@@ -50,8 +50,8 @@ struct gls_header {
  * Player nickname change.
  */
 struct gls_nick_change {
-	char old[GLS_NAME_LENGTH];
-	char new[GLS_NAME_LENGTH];
+	char old[GLS_NICK_LENGTH];
+	char new[GLS_NICK_LENGTH];
 };
 
 /**
@@ -59,7 +59,7 @@ struct gls_nick_change {
  */
 struct gls_nick_req {
 	// Nickname requested.
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 };
 
 /**
@@ -68,7 +68,7 @@ struct gls_nick_req {
 #define GLS_NICK_SET_REASON 64
 struct gls_nick_set {
 	// Nickname requested.
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 	// Reason for rejection.
 	char reason[GLS_NICK_SET_REASON];
 };
@@ -78,7 +78,7 @@ struct gls_nick_set {
  */
 struct gls_player_join {
 	// Player joining.
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 };
 
 /**
@@ -86,7 +86,7 @@ struct gls_player_join {
  */
 struct gls_player_part {
 	// Player parting.
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 };
 
 /**
@@ -118,7 +118,7 @@ struct gls_say1 {
 	char message[GLS_SAY_MESSAGE_LENGTH];
 };
 struct gls_say2 {
-	char nick[GLS_NAME_LENGTH];
+	char nick[GLS_NICK_LENGTH];
 	uint64_t tval;
 	char message[GLS_SAY_MESSAGE_LENGTH];
 };
