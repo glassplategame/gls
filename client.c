@@ -187,30 +187,42 @@ int main(int argc, char* argv[]) {
 
 	// Play the game (main loop).
 	done = 0;
-	regex_t regex_nick_post;
-	regex_t regex_nick_pre;
-	regex_t regex_say_post;
-	regex_t regex_say_pre;
-	regmatch_t regmatch[2];
-	if ((ret = regcomp(&regex_nick_pre, "^\\s*nick\\s*.*$",
+	const int REGMATCH_COUNT = 3;
+	regex_t regex_board;
+	regex_t regex_command;
+	regex_t regex_help;
+	regex_t regex_nick;
+	regex_t regex_plate;
+	regex_t regex_quit;
+	regmatch_t regmatch[REGMATCH_COUNT];
+	if ((ret = regcomp(&regex_board, "^board\\s*$",
 		REG_EXTENDED | REG_NOSUB))) {
-		g_log_error("Unable to compile 1st nick regex: '%i'", ret);
+		g_log_error("Unable to compile board regex: '%i'", ret);
 		exit(EXIT_FAILURE);
-	} else if ((ret = regcomp(&regex_nick_post, "^\\s*nick\\s++(\\w+)\\s*$",
+	} else if ((ret = regcomp(&regex_command, "^/(.*)$",
 		REG_EXTENDED))) {
-		g_log_error("Unable to compile 2nd nick regex: '%i'", ret);
+		g_log_error("Unable to compile command regex: '%i'", ret);
 		exit(EXIT_FAILURE);
-	} else if ((ret = regcomp(&regex_say_pre, "^\\s*say\\s*.*$",
+	} else if ((ret = regcomp(&regex_help, "^(help|\\?)\\s*$",
 		REG_EXTENDED | REG_NOSUB))) {
-		g_log_error("Unable to compile 1st say regex: '%i'", ret);
+		g_log_error("Unable to compile help regex: '%i'", ret);
 		exit(EXIT_FAILURE);
-	} else if ((ret = regcomp(&regex_say_post, "^\\s*say\\s+([^\\s].*)$",
+	} else if ((ret = regcomp(&regex_nick, "^nick(\\s+(\\w+))?\\s*$",
 		REG_EXTENDED))) {
-		g_log_error("Unable to compile 2nd say regex: '%i'", ret);
+		g_log_error("Unable to compile nick regex: '%i'", ret);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_plate, "^plate(\\s+(\\w+))?\\s*$",
+		REG_EXTENDED))) {
+		g_log_error("Unable to compile plate regex: '%i'", ret);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_quit, "^quit\\s*$",
+		REG_EXTENDED | REG_NOSUB))) {
+		g_log_error("Unable to compile quit regex: '%i'", ret);
 		exit(EXIT_FAILURE);
 	}
 	while (!done) {
 		int read_count;
+		char* cmd;
 		char command[CLIENT_COMMAND_SIZE];
 		struct gls_packet packet;
 		const char prompt[] = "> ";
@@ -330,7 +342,8 @@ int main(int argc, char* argv[]) {
 			continue;
 		} else if (read_count == sizeof(command)) {
 			// Command too long.
-			log_warn(&g_log, "Command too long; skipping");
+			g_log_warn("Command too long (must be < %i bytes); "
+				"skipping", CLIENT_COMMAND_SIZE);
 			continue;
 		}
 		command[read_count - 1] = '\0';
@@ -338,122 +351,13 @@ int main(int argc, char* argv[]) {
 		// Process user's command.
 		if (!strlen(command)) {
 			continue;
-		} else if (!strcmp(command, "board")) {
-			// Print game board.
-			board_print(&client.board, STDOUT_FILENO);
-		} else if (!regexec(&regex_nick_pre, command, 2, NULL, 0)) {
-			// Check for nick argument.
-			if (regexec(&regex_nick_post, command, 2, regmatch,
-				0)) {
-				g_log_warn("Unable to parse nickname");
-				continue;
-			}
-
-			// Read nick from client.
-			struct gls_nick_req req;
-			memset(&req, 0, sizeof(struct gls_nick_req));
-			if (strlcpy(req.nick, &command[regmatch[1].rm_so],
-				GLS_NAME_LENGTH) >= GLS_NAME_LENGTH) {
-				g_log_warn("Nick must be less than '%i' "
-					"characters", GLS_NAME_LENGTH);
-				continue;
-			} else if ((flub = gls_nick_validate(req.nick, 0))) {
-				g_log_warn("Invalid nick: '%s'", flub->message);
-				continue;
-			}
-
-			// Send nick request to server.
-			if ((flub = gls_nick_req_write(&req, client.sockfd))) {
-				g_log_warn("Unable to send nick request: '%s'",
-					flub->message);
-				break;
-			}
-			g_log_info("Requested nick '%s'", req.nick);
-		} else if (!strcmp(command, "help") || !strcmp(command, "?")) {
-			// Print help message.
-			char* message =
-				"board: Print the game board.\n"
-				"help: Show this help menu.\n"
-				"nick <nick>: Request specified nickname.\n"
-				"plate <RowColumn>: Print specifed plate.\n"
-				"quit: Exit the program.\n"
-				"?: Same as 'help'.\n";
-			if (write(STDOUT_FILENO, message, strlen(message)) <
-				strlen(message)) {
-				log_error(&g_log, "Writing help message");
-			}
-		} else if (!strncmp(command, "plate", 5)) {
-			int column;
-			int offset;
-			int row;
-			int scanning;
-
-			// Scan past whitespace.
-			offset = 4;
-			scanning = 1;
-			while (scanning) {
-				// Check for buffer overruns.
-				if (++offset >= CLIENT_COMMAND_SIZE - 2) {
-					log_info(&g_log, "Command too long");
-					break;
-				}
-
-				// Scan past whitespace.
-				if (!isspace(command[++offset])) {
-					scanning = 0;
-				}
-			}
-			if (scanning) {
-				// Command too long; skip.
-				continue;
-			}
-
-			// Parse board coordinates.
-			if (!isalpha(command[offset])) {
-				log_info(&g_log, "Invalid row");
-				continue;
-			}
-			row = command[offset] - 'A';
-			if (row < 0) {
-				log_info(&g_log, "Row too low");
-				continue;
-			} else if (row >= BOARD_PLATE_ROW_COUNT) {
-				log_info(&g_log, "Row too high");
-				continue;
-			}
-			offset++;
-			if (!isdigit(command[offset])) {
-				log_info(&g_log, "Invalid column");
-				continue;
-			}
-			column = command[offset] - '1';
-			if (column < 0) {
-				log_info(&g_log, "Column too low");
-				continue;
-			} else if (column >= BOARD_PLATE_COLUMN_COUNT) {
-				log_info(&g_log, "Column too high");
-				continue;
-			}
-
-			// Print plate.
-			plate_print(&client.board.plates[row][column],
-				STDOUT_FILENO);
-		} else if (!strcmp(command, "quit")) {
-			// Quit the game.
-			done = 1;
-		} else if (!regexec(&regex_say_pre, command, 2, NULL, 0)) {
+		} else if (regexec(&regex_command, command, REGMATCH_COUNT,
+			regmatch, 0)) {
 			struct gls_say1 say;
-
-			// Check for say argument.
-			if (regexec(&regex_say_post, command, 2, regmatch,
-				0)) {
-				g_log_warn("Unable to parse message");
-				continue;
-			}
 
 			// Prepare Say1 packet.
 			memset(&say, 0, sizeof(struct gls_say1));
-			if (strlcpy(say.message, &command[regmatch[1].rm_so],
+			if (strlcpy(say.message, command,
 				GLS_SAY_MESSAGE_LENGTH) >=
 				GLS_SAY_MESSAGE_LENGTH) {
 				// TODO: Break long messages into little
@@ -469,11 +373,118 @@ int main(int argc, char* argv[]) {
 				g_log_warn("Unable to send message: '%s'",
 					flub->message);
 			}
+			continue;
+		}
+		cmd = &command[regmatch[1].rm_so];
+		if (!regexec(&regex_board, cmd, REGMATCH_COUNT, regmatch, 0)) {
+			// Print game board.
+			board_print(&client.board, STDOUT_FILENO);
+		} else if (!regexec(&regex_help, cmd, 0, NULL, 0)) {
+			// Print help message.
+			char* message =
+				"/board: Print the game board.\n"
+				"/help: Show this help menu.\n"
+				"/nick <nick>: Request specified nickname.\n"
+				"/plate <RowColumn>: Print specifed plate.\n"
+				"/quit: Exit the program.\n"
+				"/?: Same as 'help'.\n";
+			if (write(STDOUT_FILENO, message, strlen(message)) <
+				strlen(message)) {
+				g_log_error("Writing help message");
+			}
+		} else if (!regexec(&regex_nick, cmd, REGMATCH_COUNT, regmatch,
+			0)) {
+			// Send Nick Request.
+			struct gls_nick_req req;
+			regoff_t len;
+
+			// Check for nick argument.
+			if (regmatch[2].rm_so == -1) {
+				g_log_warn("Missing nickname");
+				continue;
+			}
+
+			// Read nick from client.
+			memset(&req, 0, sizeof(struct gls_nick_req));
+			len = regmatch[2].rm_eo - regmatch[2].rm_so + 1;
+			if (strlcpy(req.nick, &cmd[regmatch[2].rm_so],
+				len < GLS_NAME_LENGTH ? len : GLS_NAME_LENGTH)
+				>= GLS_NAME_LENGTH) {
+				g_log_warn("Nick must be less than '%i' "
+					"characters", GLS_NAME_LENGTH);
+				continue;
+			} else if ((flub = gls_nick_validate(req.nick, 0))) {
+				g_log_warn("Invalid nick: '%s'", flub->message);
+				continue;
+			}
+
+			// Send nick request to server.
+			if ((flub = gls_nick_req_write(&req, client.sockfd))) {
+				g_log_warn("Unable to send nick request: '%s'",
+					flub->message);
+				break;
+			}
+			g_log_info("Requested nick '%s'", req.nick);
+		} else if (!regexec(&regex_plate, cmd, REGMATCH_COUNT, regmatch,
+			0)) {
+			// Print specified plate.
+			int column;
+			int offset;
+			int row;
+
+			// Check for plate specification.
+			if (regmatch[2].rm_so == -1) {
+				g_log_warn("Missing plate location");
+				continue;
+			}
+
+			// Parse board coordinates.
+			// TODO: Deal with lowercase, multiple letters/numbers,
+			// make less sucky in general.
+			offset = regmatch[2].rm_so;
+			if (!isalpha(cmd[offset])) {
+				g_log_info("Invalid row '%c'", cmd[offset]);
+				continue;
+			}
+			row = cmd[offset] - 'A';
+			if (row < 0) {
+				g_log_info("Row '%c' too low", cmd[offset]);
+				continue;
+			} else if (row >= BOARD_PLATE_ROW_COUNT) {
+				g_log_info("Row '%c' too high (must be less "
+					"than '%c')", cmd[offset],
+					BOARD_PLATE_ROW_COUNT + 'A');
+				continue;
+			}
+			offset++;
+			if (!isdigit(cmd[offset])) {
+				g_log_info("Invalid column '%c'; expected "
+					"digit", cmd[offset]);
+				continue;
+			}
+			column = cmd[offset] - '1';
+			if (column < 0) {
+				g_log_info("Column '%c' too low", cmd[offset]);
+				continue;
+			} else if (column >= BOARD_PLATE_COLUMN_COUNT) {
+				g_log_info("Column '%c' too high (must be "
+				"less than '%c')", cmd[offset],
+				BOARD_PLATE_COLUMN_COUNT + '1');
+				continue;
+			}
+
+			// Print plate.
+			plate_print(&client.board.plates[row][column],
+				STDOUT_FILENO);
+		} else if (!regexec(&regex_quit, cmd, REGMATCH_COUNT, regmatch,
+			0)) {
+			// Quit the game.
+			done = 1;
 		} else {
 			// Unknown command.
-			log_info(&g_log, "Command not recognized");
+			g_log_info("Command not recognized");
 		}
-	}
+	} // Playing.
 
 	// Close connection to the server.
 	if (close(client.sockfd) == -1) {
