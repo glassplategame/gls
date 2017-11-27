@@ -93,6 +93,7 @@ int main(int argc, char* argv[]) {
 	struct cargs cargs;
 	struct client client;
 	int done;
+	char errbuf[128];
 	struct flub* flub;
 	struct gls_packet packet;
 	struct sockaddr_in sockaddr_in;
@@ -197,27 +198,33 @@ int main(int argc, char* argv[]) {
 	regmatch_t regmatch[REGMATCH_COUNT];
 	if ((ret = regcomp(&regex_board, "^board\\s*$",
 		REG_EXTENDED | REG_NOSUB))) {
-		g_log_error("Unable to compile board regex: '%i'", ret);
+		regerror(ret, &regex_board, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile board regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_command, "^/(.*)$",
 		REG_EXTENDED))) {
-		g_log_error("Unable to compile command regex: '%i'", ret);
+		regerror(ret, &regex_command, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile command regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_help, "^(help|\\?)\\s*$",
 		REG_EXTENDED | REG_NOSUB))) {
-		g_log_error("Unable to compile help regex: '%i'", ret);
+		regerror(ret, &regex_help, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile help regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_nick, "^nick(\\s+(\\w+))?\\s*$",
 		REG_EXTENDED))) {
-		g_log_error("Unable to compile nick regex: '%i'", ret);
+		regerror(ret, &regex_nick, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile nick regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_plate, "^plate(\\s+(\\w+))?\\s*$",
 		REG_EXTENDED))) {
-		g_log_error("Unable to compile plate regex: '%i'", ret);
+		regerror(ret, &regex_plate, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile plate regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_quit, "^quit\\s*$",
 		REG_EXTENDED | REG_NOSUB))) {
-		g_log_error("Unable to compile quit regex: '%i'", ret);
+		regerror(ret, &regex_quit, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile quit regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	}
 	while (!done) {
