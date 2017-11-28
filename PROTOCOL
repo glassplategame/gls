@@ -7,7 +7,7 @@ DOUBLE WARNING: This protocol has not been peer-reviewed and is probably sucky.
 1. Packets
 
 All GLS packets are prefixed by an unsigned 32-bit integer which denotes the
-"event type" for the data proceeding it.  The amount of data proceeding the
+"event type" for the data proceeding it.  The amount of data suffixing the
 header is a fixed amount that depends on the event type.  The event type is
 in network byte order (big endian).
 
@@ -239,7 +239,29 @@ send a message to the players.
 This packet is sent from the server to each player in order to inform each
 player of another's player's message.
 
-2. Client State
+1.11 Sync End
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                            MotD                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  MotD:  256 bytes
+
+    A C-string containing the server's Message of the Day.
+
+This packet is sent from the server to the player when the player has entered
+the AUTHENTICATED state.
+
+2. Client States
 
 Clients have various states as they connect to and exchange data across the
 socket.
@@ -255,6 +277,11 @@ socket.
   PROTOVEROKAY
 
     The client has an acceptable protover and must now choose a nickname.
+
+  SYNCHRONIZING
+
+    The client has successfully chosen a nickname and must now receive game
+    state information from the server.
 
   AUTHENTICATED
 
@@ -296,11 +323,18 @@ If the server chooses to reject a nickname, it MUST inform the client with a
 Nick Set packet with the Reason field set appropriately, then wait for another
 Nick Req packet from the client.  A server MUST reject the client's nickname if
 it is already in use and MAY reject a nickname at its own discretion.  If the
-server accepts the client's nickname, the client is moved to the AUTHENTICATED
+server accepts the client's nickname, the client is moved to the SYNCHRONIZING
 state and the server MUST send the client a Nick Set packet with the client's
 requested nickname.
 
-3.4 AUTHENTICATED
+3.4 SYNCHRONIZING
+
+The server has authenticated the client and must now send the game state to
+the client.  When the game state has been sent to the client, the server MUST
+send a Sync End packet to the client, at which point the client is moved to
+the AUTHENTICATED state.
+
+3.5 AUTHENTICATED
 
 In the AUTHENTICATED state the server responds to various client packets
 corresponding to the actual playing of the game.  If the server receives an
@@ -310,7 +344,7 @@ disconnect the client and move it to the DISCONNECTED state.  If the server
 receives a malformed packet it MUST disconnect the client and move it to the
 DISCONNECTED state.
 
-3.4.1 Nick Request
+3.5.1 Nick Request
 
 Client requests a nickname change to the specified nickname.  The server MUST
 reply with a Nick Set packet indicating either that the client now has the
@@ -318,7 +352,7 @@ specified nickname or a reason why the client will retain their current
 nickname. If the client's nickname is changed, the server MUST also send a Nick
 Change packet to every other client in the AUTHENTICATED state.
 
-3.4.2 Say1
+3.5.2 Say1
 
 Client sends server a message that the client wishes to send to all of the
 other players.  The server MAY choose to modify the message for propriety
@@ -352,18 +386,24 @@ AUTHENTICATED state.
 The client MUST send the server a Nick Req packet with the client's desired
 nickname.  The server MAY reject the nickname, in which case the client MUST
 choose another nickname or return to the DISCONNECTED state.  If the server
-accepts the nickname then the client is moved to the AUTHENTICATED state.
+accepts the nickname then the client is moved to the SYNCHRONIZING state.
 
-4.4 AUTHENTICATED
+4.4 SYNCHRONIZING
+
+The client MUST wait for a Sync End packet from the server, at which point
+it is moved to the AUTHENTICATED state and the client MUST display the Sync
+End packet's MotD.
+
+4.5 AUTHENTICATED
 
 In this state the client must be ready to respond to events from the server
 and be prepared to forward any input from the user to the server.
 
-4.4.1 Nick Request
+4.5.1 Nick Request
 The user may choose to request a new nickname, in which case the client MUST
 send a Nick Request packet to the server with the requested nickname.
 
-4.4.2 Nick Set
+4.5.2 Nick Set
 The server may choose to send a Nick Set packet to the client.  If the packet
 contains a non-empty nickname, the client MUST inform the user that their
 nickname has been set to the specified nickname; otherwise, if the packet
@@ -371,24 +411,24 @@ contains an empty nickname, the client MUST inform the user that a previous
 Nick Request was rejected for the reason listed in the Reason field of the
 packet.
 
-4.4.3 Nick Change
+4.5.3 Nick Change
 The server will send the client a Nick Change packet when another client's
 nickname has changed.  The client MUST inform the user of the change.
 
-4.4.4 Player Join
+4.5.4 Player Join
 The server will send the client a Player Join packet when another client has
 joined the game.  The client MUST inform the user of the new client.
 
-4.4.5 Player Part
+4.5.5 Player Part
 The server will send the client a Player Part packet when another client has
 left the game.  The client MUST inform the user of the departed client.
 
-4.4.6 Shutdown
+4.5.6 Shutdown
 The server sends the shutdown packet when it shuts down.  The client MUST
 display the reason (if available) for the shutdown to the user and the client
 MUST move itself back to the DISCONNECTED state.
 
-4.4.7 Say2
+4.5.7 Say2
 The server sends a Say2 packet when another player has sent a message.  The
 client MUST display the sender's nick and message to the user and MAY display
 the time of the message.

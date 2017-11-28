@@ -131,6 +131,14 @@ struct gls_shutdown {
 	char reason[GLS_SHUTDOWN_REASON_LENGTH];
 };
 
+/**
+ * Player synchronization finished packet.
+ */
+#define GLS_MOTD_LENGTH 256
+struct gls_sync_end {
+	char motd[GLS_MOTD_LENGTH];
+};
+
 // Packet headers.
 #define GLS_EVENT_PROTOVER		0x00000001
 #define GLS_EVENT_PROTOVERACK		0x00000002
@@ -142,6 +150,7 @@ struct gls_shutdown {
 #define GLS_EVENT_SHUTDOWN		0x00000008
 #define GLS_EVENT_SAY1			0x00000009
 #define GLS_EVENT_SAY2			0x0000000A
+#define GLS_EVENT_SYNC_END		0x0000000B
 
 // Union of all packets.
 struct gls_packet {
@@ -157,6 +166,7 @@ struct gls_packet {
 		struct gls_shutdown shutdown;
 		struct gls_say1 say1;
 		struct gls_say2 say2;
+		struct gls_sync_end sync_end;
 	} data;
 };
 
@@ -179,6 +189,11 @@ struct flub* gls_init();
  * Destructor function for the pthread-specific gls buffer.
  */
 void gls_init_destructor(void* buffer);
+
+/**
+ * Validate a MotD.
+ */
+struct flub* gls_motd_validate(char* message);
 
 /**
  * Read the nick change notification from the specified file descriptor.
@@ -323,6 +338,17 @@ struct flub* gls_shutdown_read(struct gls_shutdown* shutdown, int fd,
  * Write the specified Shutdown packet to the specified file descriptor.
  */
 struct flub* gls_shutdown_write(struct gls_shutdown* shutdown, int fd);
+
+/**
+ * Read the specified sync end event from the specified file descriptor.
+ */
+struct flub* gls_sync_end_read(struct gls_sync_end* sync_end, int fd,
+	int validate);
+
+/**
+ * Write the specified sync end event to the specified file descriptor.
+ */
+struct flub* gls_sync_end_write(struct gls_sync_end* sync_end, int fd);
 
 /**
  * Re-attempts partial writes.

@@ -186,6 +186,22 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Nickname accepted.\n");
 	}
 
+	// Synchronize
+	if ((flub = gls_header_read(&packet.header, client.sockfd))) {
+		g_log_error("Unable to read sync_end header: '%s'",
+		flub->message);
+		exit(EXIT_FAILURE);
+	}
+	if ((flub = gls_sync_end_read(&packet.data.sync_end, client.sockfd,
+		1))) {
+		g_log_error("Unable to read sync_end packet: '%s'",
+		flub->message);
+		exit(EXIT_FAILURE);
+	}
+	if (strlen(packet.data.sync_end.motd)) {
+		g_log_info("MotD: '%s'", packet.data.sync_end.motd);
+	}
+
 	// Play the game (main loop).
 	done = 0;
 	const int REGMATCH_COUNT = 3;

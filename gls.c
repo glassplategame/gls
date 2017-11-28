@@ -206,6 +206,21 @@ struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd) {
 	return NULL;
 }
 
+struct flub* gls_motd_validate(char* message) {
+	int i;
+	for (i = 0; i < GLS_MOTD_LENGTH; i++) {
+		if (message[i] == '\0') {
+			break;
+		} else if (!isprint(message[i])) {
+			return g_flub_toss("Invalid MotD char at index '%i'",
+				i);
+		}
+	}
+	if (i == GLS_MOTD_LENGTH) {
+		return g_flub_toss("MotD too long");
+	}
+	return NULL;
+}
 
 struct flub* gls_nick_change_read(struct gls_nick_change* change, int fd,
 	int validate) {
@@ -394,6 +409,9 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 	case GLS_EVENT_SAY2:
 		flub = gls_say2_read(&packet->data.say2, fd, validate);
 		break;
+	case GLS_EVENT_SYNC_END:
+		flub = gls_sync_end_read(&packet->data.sync_end, fd, validate);
+		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
 			packet->header.event);
@@ -439,6 +457,9 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 		break;
 	case GLS_EVENT_SAY2:
 		flub = gls_say2_write(&packet->data.say2, fd);
+		break;
+	case GLS_EVENT_SYNC_END:
+		flub = gls_sync_end_write(&packet->data.sync_end, fd);
 		break;
 	default:
 		flub = g_flub_toss("Unknown packet type: '%u'",
@@ -905,6 +926,52 @@ struct flub* gls_shutdown_write(struct gls_shutdown* shutdown, int fd) {
 	if (gls_writen(fd, buf, len) < len) {
 		return g_flub_toss("Unable to write shutdown: '%s'",
 			g_serr(errno));
+	}
+	return NULL;
+}
+
+struct flub* gls_sync_end_read(struct gls_sync_end* sync_end, int fd,
+	int validate) {
+	struct flub* flub;
+
+	// Read in packet.
+	memset(sync_end, 0, sizeof(struct gls_sync_end));
+	if (gls_readn(fd, sync_end->motd, GLS_MOTD_LENGTH) <
+		GLS_MOTD_LENGTH) {
+		return g_flub_toss("Unable to read sync_end packet: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate data.
+	if (!validate) {
+		return NULL;
+	}
+	if ((flub = gls_motd_validate(sync_end->motd))) {
+		return flub_append(flub, "validating sync_end packet");
+	}
+	return NULL;
+}
+
+struct flub* gls_sync_end_write(struct gls_sync_end* sync_end, int fd) {
+	char* buf;
+	char* cur;
+	ssize_t len;
+
+	// Get buffer.
+	if (!(cur = buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get gls buffer");
+	}
+
+	// Prepare buffer.
+	gls_header_marshal(cur, GLS_EVENT_SYNC_END);
+	cur += len = 4;
+	strlcpy(cur, sync_end->motd, GLS_MOTD_LENGTH);
+	cur += GLS_MOTD_LENGTH;
+	len += GLS_MOTD_LENGTH;
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write sync_end packet");
 	}
 	return NULL;
 }
