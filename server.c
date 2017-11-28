@@ -116,6 +116,8 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		}
 		player->protoverokay = 1;
 	} else if (!player->authenticated) { // Expect nick request.
+		struct gls_sync_end sync;
+
 		// Read nick request.
 		if (packet_in.header.event != GLS_EVENT_NICK_REQ) {
 			return g_flub_toss("Expected nick request during "
@@ -128,6 +130,15 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		if (flub) {
 			return flub_append(flub, "processing player data");
 		}
+
+		// Synchronize game state.
+		memset(&sync, 0, sizeof(struct gls_sync_end));
+		strlcpy(sync.motd, "Welcome to the Glass Plate Game test "
+			"server!", GLS_MOTD_LENGTH);
+		if ((flub = gls_sync_end_write(&sync, player->sockfd))) {
+			return flub_append(flub, "synchronizing player");
+		}
+		player->synchronized = 1;
 	} else { // Client generated packet.
 		int i;
 		struct gls_say1* say1;
