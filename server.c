@@ -116,6 +116,7 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		}
 		player->protoverokay = 1;
 	} else if (!player->authenticated) { // Expect nick request.
+		int i;
 		struct gls_sync_end sync;
 
 		// Read nick request.
@@ -132,6 +133,31 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		}
 
 		// Synchronize game state.
+		// Send plates.
+		for (i = 0; i < 38; i++) { // FIXME: Awful hacks.
+			struct gls_plate_place place;
+			struct plate* plate;
+			char loc[3];
+
+			// Prepare packet.
+			plate = ((struct plate*)server->board.plates) + i;
+			strlcpy(place.abbrev, plate->abbrev,
+				GLS_PLATE_ABBREV_LENGTH);
+			strlcpy(place.description, plate->description,
+				GLS_PLATE_DESCRIPTION_LENGTH);
+			strlcpy(place.name, plate->name,
+				GLS_PLATE_NAME_LENGTH);
+			loc[0] = 'A' + (i / 8);
+			loc[1] = '1' + (i % 8);
+			loc[2] = '\0';
+			strlcpy(place.loc, loc, GLS_LOCATION_LENGTH);
+
+			// Send packet.
+			if ((flub = gls_plate_place_write(&place,
+				player->sockfd))) {
+				return flub_append(flub, "sending plate");
+			}
+		}
 		memset(&sync, 0, sizeof(struct gls_sync_end));
 		strlcpy(sync.motd, "Welcome to the Glass Plate Game test "
 			"server!", GLS_MOTD_LENGTH);

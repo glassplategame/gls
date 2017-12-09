@@ -472,6 +472,120 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 	return NULL;
 }
 
+struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
+	int validate) {
+	int i = 0;
+	struct iovec iovs[4];
+	ssize_t len;
+
+	// Read packet.
+	memset(plate, 0, sizeof(struct gls_plate_place));
+	len = 0;
+	iovs[0].iov_base = plate->abbrev;
+	len += iovs[0].iov_len = GLS_PLATE_ABBREV_LENGTH;
+	iovs[1].iov_base = plate->description;
+	len += iovs[1].iov_len = GLS_PLATE_DESCRIPTION_LENGTH;
+	iovs[2].iov_base = plate->name;
+	len += iovs[2].iov_len = GLS_PLATE_NAME_LENGTH;
+	iovs[3].iov_base = plate->loc;
+	len += iovs[3].iov_len = GLS_LOCATION_LENGTH;
+	if (gls_readvn(fd, iovs, 4) < len) {
+		return g_flub_toss("Unable to read plate_place packet: '%s'",
+			g_serr(errno));
+	}
+
+	// Validate packet.
+	// TODO: Refactor ugly mess.
+	if (!validate) {
+		return NULL;
+	}
+	for (i = 0; i < GLS_PLATE_ABBREV_LENGTH; i++) {
+		if (plate->abbrev[i] == '\0') {
+			break;
+		} else if (!isprint(plate->abbrev[i])) {
+			return g_flub_toss("Invalid abbrev char at index '%i'",
+				i);
+		}
+	}
+	if (i == GLS_PLATE_ABBREV_LENGTH) {
+		return g_flub_toss("Plate abbreviation too long");
+	} else if (!i) {
+		return g_flub_toss("Empty plate abbreviation");
+	}
+	for (i = 0; i < GLS_PLATE_DESCRIPTION_LENGTH; i++) {
+		if (plate->description[i] == '\0') {
+			break;
+		} else if (!isprint(plate->description[i])) {
+			return g_flub_toss("Invalid plate desc char at index "
+				"'%i'", i);
+		}
+	}
+	if (i == GLS_PLATE_DESCRIPTION_LENGTH) {
+		return g_flub_toss("Plate description too long");
+	}/* else if (!i) {
+		return g_flub_toss("Empty plate description");
+	}*/
+	for (i = 0; i < GLS_PLATE_NAME_LENGTH; i++) {
+		if (plate->name[i] == '\0') {
+			break;
+		} else if (!isprint(plate->name[i])) {
+			return g_flub_toss("Invalid plate name char at index "
+				"'%i'", i);
+		}
+	}
+	if (!isupper(plate->loc[0])) {
+		return g_flub_toss("Invalid plate row specifier");
+	} else if (plate->loc[0] - 'A' < 0) {
+		return g_flub_toss("Plate row specifier too small");
+	} else if (plate->loc[0] - 'A' >= GLS_BOARD_ROW_COUNT) {
+		return g_flub_toss("Plate row specifier too large");
+	} else if (!isdigit(plate->loc[1])) {
+		return g_flub_toss("Invalid plate column specifier");
+	} else if (plate->loc[1] - '1' < 0) {
+		return g_flub_toss("Plate column specifier too small");
+	} else if (plate->loc[1] - '1' >= GLS_BOARD_COLUMN_COUNT) {
+		return g_flub_toss("Plate column specified too large");
+	} else if (plate->loc[2] != '\0') {
+		return g_flub_toss("Expected null byte in loc specifier");
+	}
+	return NULL;
+}
+
+struct flub* gls_plate_place_write(struct gls_plate_place* plate, int fd) {
+	char* buf;
+	char* cur;
+	ssize_t len;
+
+	// Get buffer.
+	if (!(cur = buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get gls buffer");
+	}
+
+	// Prepare buffer.
+	len = 0;
+	gls_header_marshal(cur, GLS_EVENT_PLATE_PLACE);
+	cur += len = 4;
+	strlcpy(cur, plate->abbrev, GLS_PLATE_ABBREV_LENGTH);
+	cur += GLS_PLATE_ABBREV_LENGTH;
+	len += GLS_PLATE_ABBREV_LENGTH;
+	strlcpy(cur, plate->description, GLS_PLATE_DESCRIPTION_LENGTH);
+	cur += GLS_PLATE_DESCRIPTION_LENGTH;
+	len += GLS_PLATE_DESCRIPTION_LENGTH;
+	strlcpy(cur, plate->name, GLS_PLATE_NAME_LENGTH);
+	cur += GLS_PLATE_NAME_LENGTH;
+	len += GLS_PLATE_NAME_LENGTH;
+	strlcpy(cur, plate->loc, GLS_LOCATION_LENGTH);
+	cur += GLS_LOCATION_LENGTH;
+	len += GLS_LOCATION_LENGTH;
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write plate_place packet: '%s'",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
 struct flub* gls_player_join_read(struct gls_player_join* join, int fd,
 	int validate) {
 	struct flub* flub;

@@ -38,6 +38,10 @@
 // Lower-limit on pipe atomicity.
 #define GLS_PIPE_BUF 4096
 
+// Board dimensions.
+#define GLS_BOARD_ROW_COUNT 8
+#define GLS_BOARD_COLUMN_COUNT 8
+
 /**
  * Structure that represents an event in the Glass Plate Game.
  */
@@ -71,6 +75,20 @@ struct gls_nick_set {
 	char nick[GLS_NICK_LENGTH];
 	// Reason for rejection.
 	char reason[GLS_NICK_SET_REASON];
+};
+
+/**
+ * Plate placement.
+ */
+#define GLS_PLATE_ABBREV_LENGTH 4
+#define GLS_PLATE_DESCRIPTION_LENGTH 256
+#define GLS_PLATE_NAME_LENGTH 64
+#define GLS_LOCATION_LENGTH 3
+struct gls_plate_place {
+	char abbrev[GLS_PLATE_ABBREV_LENGTH];
+	char description[GLS_PLATE_DESCRIPTION_LENGTH];
+	char name[GLS_PLATE_NAME_LENGTH];
+	char loc[GLS_LOCATION_LENGTH];
 };
 
 /**
@@ -151,6 +169,7 @@ struct gls_sync_end {
 #define GLS_EVENT_SAY1			0x00000009
 #define GLS_EVENT_SAY2			0x0000000A
 #define GLS_EVENT_SYNC_END		0x0000000B
+#define GLS_EVENT_PLATE_PLACE		0x0000000C
 
 // Union of all packets.
 struct gls_packet {
@@ -167,6 +186,7 @@ struct gls_packet {
 		struct gls_say1 say1;
 		struct gls_say2 say2;
 		struct gls_sync_end sync_end;
+		struct gls_plate_place plate_place;
 	} data;
 };
 
@@ -242,6 +262,17 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate);
  * Writes the specified packet to the specified file descriptor.
  */
 struct flub* gls_packet_write(struct gls_packet* packet, int fd);
+
+/**
+ * Read the specified plate placement from the specified file descriptor.
+ */
+struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
+	int validate);
+
+/**
+ * Write the specified plate placement to the specified file descriptor.
+ */
+struct flub* gls_plate_place_write(struct gls_plate_place* plate, int fd);
 
 /**
  * Read the specified Player Join packet from the specified file descriptor.

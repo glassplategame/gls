@@ -23,37 +23,21 @@
 #include <stdlib.h>
 
 #include "global.h"
-
-#define PLATE_ABBREV_LENGTH 4
-#define PLATE_DESCRIPTION_LENGTH 256
-#define PLATE_NAME_LENGTH 64
-
-#define PLATE_SIZE_PACKED (PLATE_ABBREV_LENGTH + PLATE_DESCRIPTION_LENGTH + \
-	PLATE_NAME_LENGTH)
+#include "gls.h"
 
 struct plate {
 	// The plate's concept.
-	char name[PLATE_NAME_LENGTH];
+	char name[GLS_PLATE_NAME_LENGTH];
 	// A short, three-letter abbreviation for the plate's name. Names are
 	// not meant to be unique.
-	char abbrev[PLATE_ABBREV_LENGTH];
+	char abbrev[GLS_PLATE_ABBREV_LENGTH];
 	// Description of the plate's concept.
-	char description[PLATE_DESCRIPTION_LENGTH];
+	char description[GLS_PLATE_DESCRIPTION_LENGTH];
 };
 
 /**
  * Pretty-prints the plate to the specified file.
  */
 struct flub* plate_print(struct plate* plate, int fd);
-
-/**
- * Read the plate from the specified file.
- */
-struct flub* plate_read(struct plate* plate, int fd);
-
-/**
- * Write the plate to the specified file.
- */
-struct flub* plate_write(struct plate* plate, int fd);
 
 #endif // plate_H

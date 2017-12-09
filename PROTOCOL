@@ -256,10 +256,53 @@ player of another's player's message.
 
   MotD:  256 bytes
 
-    A C-string containing the server's Message of the Day.
+    A C-string containing the server's Message of the Day.  The string MUST
+    consist of only printable ASCII characters.
 
 This packet is sent from the server to the player when the player has entered
 the AUTHENTICATED state.
+
+1.12 Plate Place
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  > Abbrev| Description                                           >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >                                                               >
+  >       | Name                                                  >
+  >                                                               >
+  >       | Loc |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+
+
+  Abbrev:  4 bytes
+
+    A C-string containing a three-letter abbreviation name for the plate.  The
+    string MUST consist of only printable ASCII characters.
+
+  Description:  256 bytes
+
+    A C-string containing a description of the plate's concept.  May be empty,
+    but if non-empty MUST consist of only printable ASCII characters.
+
+  Name:  64 bytes
+
+    A C-string containing the name of the plate.  The string MUST consist of
+    only printable ASCII characters.
+
+  Loc:  3 bytes
+
+    A C-string containing the location of the plate on the game board.  The
+    string MUST be within the range of "A1"-"H8".
+
+This packet is sent from the server to the client when the client is
+synchronizing game state with the server; the packet denotes a plate that has
+been placed on the board at the specified location.
 
 2. Client States
 
@@ -330,9 +373,12 @@ requested nickname.
 3.4 SYNCHRONIZING
 
 The server has authenticated the client and must now send the game state to
-the client.  When the game state has been sent to the client, the server MUST
-send a Sync End packet to the client, at which point the client is moved to
-the AUTHENTICATED state.
+the client.  In order to send the game state to the client, the server MUST
+send a Plate Place packet for each plate that is on the game board.
+
+When the game state has been sent to the client, the server MUST send a Sync
+End packet to the client, at which point the client is moved to the
+AUTHENTICATED state.
 
 3.5 AUTHENTICATED
 
@@ -390,9 +436,17 @@ accepts the nickname then the client is moved to the SYNCHRONIZING state.
 
 4.4 SYNCHRONIZING
 
-The client MUST wait for a Sync End packet from the server, at which point
-it is moved to the AUTHENTICATED state and the client MUST display the Sync
-End packet's MotD.
+In the SYNCHRONIZING state the client must prepare to receive the game state
+from the server.  The following packets MUST be accepted by the client, any
+others are an error and the client MUST disconnect from the server and return
+to the DISCONNECTED state.
+
+4.4.1 Plate Place
+The specified plate is placed at the specified location on the game board.
+
+4.4.2 Sync End
+The game state has been synchronized and the client MUST move to the
+AUTHENTICATED state and MUST display the packet's MotD.
 
 4.5 AUTHENTICATED
 

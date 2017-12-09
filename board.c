@@ -23,82 +23,82 @@ static size_t board_print_border(struct board* board, char* buffer);
 void board_init(struct board* board) {
 	// Use a default set of cards. Hacky.
 	memset(board, 0, sizeof(struct board));
-	strncpy(board->plates[0][0].name, "Ambivalence", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][0].abbrev, "Amb", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][1].name, "Art Versus Nature", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][1].abbrev, "AVN", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][2].name, "The Need Not to Judge", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][2].abbrev, "TNJ", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][3].name, "Calculus", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][3].abbrev, "Clc", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][4].name, "City as Artifact", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][4].abbrev, "CaA", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][5].name, "Coding", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][5].abbrev, "Cde", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][6].name, "Contemplation", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][6].abbrev, "Ctp", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[0][7].name, "Continuity/Eternity", PLATE_NAME_LENGTH);
-	strncpy(board->plates[0][7].abbrev, "C/E", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][0].name, "Creation", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][0].abbrev, "Crt", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][1].name, "Ontogeny Recapitulates Phylogeny", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][1].abbrev, "ORP", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][2].name, "Education", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][2].abbrev, "Edu", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][3].name, "Helplessness", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][3].abbrev, "Hlp", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][4].name, "Intuition", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][4].abbrev, "Itu", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][5].name, "Monetary Value", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][5].abbrev, "MnV", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][6].name, "Wavicle", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][6].abbrev, "Wav", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[1][7].name, "Freedom", PLATE_NAME_LENGTH);
-	strncpy(board->plates[1][7].abbrev, "Fre", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][0].name, "Emotional Manipulation", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][0].abbrev, "EmM", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][1].name, "Gestalt", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][1].abbrev, "Gst", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][2].name, "Harmony", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][2].abbrev, "Hrm", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][3].name, "Hidden Potential", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][3].abbrev, "HdP", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][4].name, "Joy", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][4].abbrev, "Joy", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][5].name, "Magic", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][5].abbrev, "Mgc", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][6].name, "Mechanical Advantage", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][6].abbrev, "McA", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[2][7].name, "Metamorphosis", PLATE_NAME_LENGTH);
-	strncpy(board->plates[2][7].abbrev, "Mtm", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][0].name, "Nature Tending Towards Perfection", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][0].abbrev, "NTP", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][1].name, "Myth", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][1].abbrev, "Mth", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][2].name, "Coexisting Species", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][2].abbrev, "CxS", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][3].name, "Perspective", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][3].abbrev, "Prp", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][4].name, "Reaching Out", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][4].abbrev, "RcO", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][5].name, "Return", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][5].abbrev, "Rtn", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][6].name, "Society as Active/Passive Hierarchy", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][6].abbrev, "SoH", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[3][7].name, "Structural Strength", PLATE_NAME_LENGTH);
-	strncpy(board->plates[3][7].abbrev, "StS", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][0].name, "Struggle", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][0].abbrev, "Stg", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][1].name, "Synergy", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][1].abbrev, "Syg", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][2].name, "Syntax", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][2].abbrev, "Stx", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][3].name, "Unwanted Relationships", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][3].abbrev, "UwR", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][4].name, "Structural Improvisation", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][4].abbrev, "StI", PLATE_ABBREV_LENGTH);
-	strncpy(board->plates[4][5].name, "Anthropomorphism", PLATE_NAME_LENGTH);
-	strncpy(board->plates[4][5].abbrev, "Anp", PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][0].name, "Ambivalence", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][0].abbrev, "Amb", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][1].name, "Art Versus Nature", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][1].abbrev, "AVN", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][2].name, "The Need Not to Judge", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][2].abbrev, "TNJ", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][3].name, "Calculus", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][3].abbrev, "Clc", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][4].name, "City as Artifact", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][4].abbrev, "CaA", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][5].name, "Coding", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][5].abbrev, "Cde", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][6].name, "Contemplation", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][6].abbrev, "Ctp", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[0][7].name, "Continuity/Eternity", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[0][7].abbrev, "C/E", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][0].name, "Creation", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][0].abbrev, "Crt", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][1].name, "Ontogeny Recapitulates Phylogeny", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][1].abbrev, "ORP", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][2].name, "Education", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][2].abbrev, "Edu", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][3].name, "Helplessness", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][3].abbrev, "Hlp", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][4].name, "Intuition", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][4].abbrev, "Itu", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][5].name, "Monetary Value", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][5].abbrev, "MnV", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][6].name, "Wavicle", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][6].abbrev, "Wav", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[1][7].name, "Freedom", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[1][7].abbrev, "Fre", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][0].name, "Emotional Manipulation", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][0].abbrev, "EmM", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][1].name, "Gestalt", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][1].abbrev, "Gst", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][2].name, "Harmony", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][2].abbrev, "Hrm", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][3].name, "Hidden Potential", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][3].abbrev, "HdP", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][4].name, "Joy", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][4].abbrev, "Joy", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][5].name, "Magic", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][5].abbrev, "Mgc", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][6].name, "Mechanical Advantage", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][6].abbrev, "McA", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[2][7].name, "Metamorphosis", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[2][7].abbrev, "Mtm", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][0].name, "Nature Tending Towards Perfection", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][0].abbrev, "NTP", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][1].name, "Myth", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][1].abbrev, "Mth", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][2].name, "Coexisting Species", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][2].abbrev, "CxS", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][3].name, "Perspective", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][3].abbrev, "Prp", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][4].name, "Reaching Out", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][4].abbrev, "RcO", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][5].name, "Return", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][5].abbrev, "Rtn", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][6].name, "Society as Active/Passive Hierarchy", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][6].abbrev, "SoH", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[3][7].name, "Structural Strength", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[3][7].abbrev, "StS", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][0].name, "Struggle", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][0].abbrev, "Stg", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][1].name, "Synergy", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][1].abbrev, "Syg", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][2].name, "Syntax", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][2].abbrev, "Stx", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][3].name, "Unwanted Relationships", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][3].abbrev, "UwR", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][4].name, "Structural Improvisation", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][4].abbrev, "StI", GLS_PLATE_ABBREV_LENGTH);
+	strncpy(board->plates[4][5].name, "Anthropomorphism", GLS_PLATE_NAME_LENGTH);
+	strncpy(board->plates[4][5].abbrev, "Anp", GLS_PLATE_ABBREV_LENGTH);
 }
 
 struct flub* board_print(struct board* board, int fd) {
@@ -121,7 +121,7 @@ struct flub* board_print(struct board* board, int fd) {
 	for (i = 0; i < 16; i++) {
 		buffer[offset++] = ' ';
 	}
-	for (i = 0; i < BOARD_PLATE_COLUMN_COUNT; i++) {
+	for (i = 0; i < GLS_BOARD_ROW_COUNT; i++) {
 		strcpy(&buffer[offset], "   1  ");
 		buffer[offset + 3] += i; // So hack.
 		offset += 6;
@@ -129,7 +129,7 @@ struct flub* board_print(struct board* board, int fd) {
 	buffer[offset++] = '\n';
 
 	// Write each plate to the file descriptor.
-	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
+	for (i = 0; i < GLS_BOARD_ROW_COUNT; i++) {
 		// Write row border.
 		offset += board_print_border(board, &buffer[offset]);
 
@@ -141,7 +141,7 @@ struct flub* board_print(struct board* board, int fd) {
 		buffer[offset++] = ' ';
 
 		// Write plate abbreviations.
-		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
+		for (j = 0; j < GLS_BOARD_COLUMN_COUNT; j++) {
 			// Write plate abbreviations.
 			strcpy(&buffer[offset], "| ");
 			offset += 2;
@@ -191,44 +191,4 @@ static size_t board_print_border(struct board* board, char* buffer) {
 
 	// Return bytes buffered.
 	return i;
-}
-
-struct flub* board_read(struct board* board, int fd) {
-	struct flub* flub;
-	int i;
-	int j;
-
-	// Read each plate.
-	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
-		for (j = 0; j < BOARD_PLATE_COLUMN_COUNT; j++) {
-			flub = plate_read(&board->plates[i][j], fd);
-			if (flub) {
-				return flub_append(flub, "error reading plate "
-					"(%i, %i)", i, j);
-			}
-		}
-	}
-
-	// Return success.
-	return NULL;
-}
-
-struct flub* board_write(struct board* board, int fd) {
-	struct flub* flub;
-	int i;
-	int j;
-
-	// Write each plate.
-	for (i = 0; i < BOARD_PLATE_ROW_COUNT; i++) {
-		for (j = 0; j < BOARD_PLATE_ROW_COUNT; j++) {
-			flub = plate_write(&board->plates[i][j], fd);
-			if (flub) {
-				return flub_append(flub, "Error writing plate "
-					"(%i, %i)", i, j);
-			}
-		}
-	}
-
-	// Return success;
-	return NULL;
 }

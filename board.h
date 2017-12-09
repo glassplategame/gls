@@ -24,17 +24,15 @@
 #include <unistd.h>
 
 #include "global.h"
+#include "gls.h"
 #include "plate.h"
-
-#define BOARD_PLATE_ROW_COUNT 8
-#define BOARD_PLATE_COLUMN_COUNT 8
 
 /**
  * Holds information about the actual game.
  */
 struct board {
 	// Plates are arrange in a static 8x8 square for now.
-	struct plate plates[BOARD_PLATE_ROW_COUNT][BOARD_PLATE_COLUMN_COUNT];
+	struct plate plates[GLS_BOARD_ROW_COUNT][GLS_BOARD_COLUMN_COUNT];
 };
 
 /**
@@ -46,15 +44,5 @@ void board_init(struct board* board);
  * Pretty-print the board to the specified file descriptor.
  */
 struct flub* board_print(struct board* board, int fd);
-
-/**
- * Read the board from the specified file.
- */
-struct flub* board_read(struct board* board, int fd);
-
-/**
- * Write the board to the specified file.
- */
-struct flub* board_write(struct board* board, int fd);
 
 #endif // board_H

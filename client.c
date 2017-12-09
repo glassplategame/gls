@@ -186,12 +186,45 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Nickname accepted.\n");
 	}
 
-	// Synchronize
-	if ((flub = gls_header_read(&packet.header, client.sockfd))) {
-		g_log_error("Unable to read sync_end header: '%s'",
-		flub->message);
-		exit(EXIT_FAILURE);
-	}
+	// Synchronize.
+	do {
+		int i;
+		struct plate* plate;
+
+		// Check header.
+		if ((flub = gls_header_read(&packet.header, client.sockfd))) {
+			g_log_error("Unable to read header: '%s'",
+			flub->message);
+			exit(EXIT_FAILURE);
+		}
+		if (packet.header.event == GLS_EVENT_SYNC_END) {
+			// End of sync.
+			break;
+		} else if (packet.header.event != GLS_EVENT_PLATE_PLACE) {
+			g_log_error("Unexpected event: '%u'",
+				packet.header.event);
+			exit(EXIT_FAILURE);
+		}
+
+		// Read in plate.
+		if ((flub = gls_plate_place_read(&packet.data.plate_place,
+			client.sockfd, 1))) {
+			g_log_error("Unable to read plate: '%s'",
+				flub->message);
+			exit(EXIT_FAILURE);
+		}
+
+		// Copy plate to game board.
+		i = ((packet.data.plate_place.loc[0] - 'A') * 8) +
+			((packet.data.plate_place.loc[1] - '1'));
+		plate = ((struct plate*)client.board.plates) + i;
+		strlcpy(plate->abbrev, packet.data.plate_place.abbrev,
+			GLS_PLATE_ABBREV_LENGTH);
+		strlcpy(plate->description, packet.data.plate_place.description,
+			GLS_PLATE_DESCRIPTION_LENGTH);
+		strlcpy(plate->name, packet.data.plate_place.name,
+			GLS_PLATE_NAME_LENGTH);
+	} while (1);
 	if ((flub = gls_sync_end_read(&packet.data.sync_end, client.sockfd,
 		1))) {
 		g_log_error("Unable to read sync_end packet: '%s'",
@@ -473,10 +506,10 @@ int main(int argc, char* argv[]) {
 			if (row < 0) {
 				g_log_info("Row '%c' too low", cmd[offset]);
 				continue;
-			} else if (row >= BOARD_PLATE_ROW_COUNT) {
+			} else if (row >= GLS_BOARD_ROW_COUNT) {
 				g_log_info("Row '%c' too high (must be less "
 					"than '%c')", cmd[offset],
-					BOARD_PLATE_ROW_COUNT + 'A');
+					GLS_BOARD_ROW_COUNT + 'A');
 				continue;
 			}
 			offset++;
@@ -489,10 +522,10 @@ int main(int argc, char* argv[]) {
 			if (column < 0) {
 				g_log_info("Column '%c' too low", cmd[offset]);
 				continue;
-			} else if (column >= BOARD_PLATE_COLUMN_COUNT) {
+			} else if (column >= GLS_BOARD_COLUMN_COUNT) {
 				g_log_info("Column '%c' too high (must be "
 				"less than '%c')", cmd[offset],
-				BOARD_PLATE_COLUMN_COUNT + '1');
+				GLS_BOARD_COLUMN_COUNT + '1');
 				continue;
 			}
 
