@@ -99,6 +99,32 @@ void board_init(struct board* board) {
 	strncpy(board->plates[4][4].abbrev, "StI", GLS_PLATE_ABBREV_LENGTH);
 	strncpy(board->plates[4][5].name, "Anthropomorphism", GLS_PLATE_NAME_LENGTH);
 	strncpy(board->plates[4][5].abbrev, "Anp", GLS_PLATE_ABBREV_LENGTH);
+	board->plates[4][6].empty = 1;
+	board->plates[4][7].empty = 1;
+	board->plates[5][0].empty = 1;
+	board->plates[5][1].empty = 1;
+	board->plates[5][2].empty = 1;
+	board->plates[5][3].empty = 1;
+	board->plates[5][4].empty = 1;
+	board->plates[5][5].empty = 1;
+	board->plates[5][6].empty = 1;
+	board->plates[5][7].empty = 1;
+	board->plates[6][0].empty = 1;
+	board->plates[6][1].empty = 1;
+	board->plates[6][2].empty = 1;
+	board->plates[6][3].empty = 1;
+	board->plates[6][4].empty = 1;
+	board->plates[6][5].empty = 1;
+	board->plates[6][6].empty = 1;
+	board->plates[6][7].empty = 1;
+	board->plates[7][0].empty = 1;
+	board->plates[7][1].empty = 1;
+	board->plates[7][2].empty = 1;
+	board->plates[7][3].empty = 1;
+	board->plates[7][4].empty = 1;
+	board->plates[7][5].empty = 1;
+	board->plates[7][6].empty = 1;
+	board->plates[7][7].empty = 1;
 }
 
 struct flub* board_print(struct board* board, int fd) {
@@ -145,8 +171,13 @@ struct flub* board_print(struct board* board, int fd) {
 			// Write plate abbreviations.
 			strcpy(&buffer[offset], "| ");
 			offset += 2;
-			strncpy(&buffer[offset], board->plates[i][j].abbrev,
-				3);
+			if (board->plates[i][j].empty) {
+				strcpy(&buffer[offset], " - ");
+			} else {
+				strncpy(&buffer[offset],
+					board->plates[i][j].abbrev,
+					3);
+			}
 			for (k = 0; k < 3; k++) {
 				// Replace empty characters with space.
 				if (buffer[offset + k] == '\0') {

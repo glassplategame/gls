@@ -84,11 +84,13 @@ struct gls_nick_set {
 #define GLS_PLATE_DESCRIPTION_LENGTH 256
 #define GLS_PLATE_NAME_LENGTH 64
 #define GLS_LOCATION_LENGTH 3
+#define GLS_PLATE_FLAG_EMPTY 					0x00000001
 struct gls_plate_place {
 	char abbrev[GLS_PLATE_ABBREV_LENGTH];
 	char description[GLS_PLATE_DESCRIPTION_LENGTH];
 	char name[GLS_PLATE_NAME_LENGTH];
 	char loc[GLS_LOCATION_LENGTH];
+	uint32_t flags;
 };
 
 /**

@@ -21,48 +21,14 @@
 #include "plate.h"
 
 struct flub* plate_print(struct plate* plate, int fd) {
-	char* buffer;
-	const size_t buffer_size = 2048;
-	int offset;
-	char* string;
-
-	// Allocate buffer.
-	buffer = (char*)malloc(buffer_size);
-	if (!buffer) {
-		return g_flub_toss("Unable to allocate plate buffer");
+	// Print plate info.
+	if (plate->empty) {
+		g_log_info("Location is empty");
+		return NULL;
 	}
-	memset(buffer, 0, buffer_size);
-
-	// Place contents in buffer.
-	offset = 0;
-	string = "Name: ";
-	strcpy(buffer, string);
-	offset += strlen(string);
-	strcpy(&buffer[offset], plate->name);
-	offset += strlen(plate->name);
-	buffer[offset++] = '\n';
-	string = "Abbreviation: ";
-	strcpy(&buffer[offset], string);
-	offset += strlen(string);
-	strcpy(&buffer[offset], plate->abbrev);
-	offset += strlen(plate->abbrev);
-	buffer[offset++] = '\n';
-	if (strlen(plate->description)) {
-		string = "Description: ";
-		strcpy(&buffer[offset], string);
-		offset += strlen(string);
-		strcpy(&buffer[offset], plate->description);
-		offset += strlen(plate->description);
-		buffer[offset++] = '\n';
-	}
-
-	// Write buffer to file.
-	if (write(fd, buffer, strlen(buffer)) == -1) {
-		g_log_error("Printing plate buffer: '%s'", g_serr(errno));
-	}
-
-	// Free buffer.
-	free(buffer);
+	g_log_info("Name: %s", plate->name);
+	g_log_info("Abbreviation: %s", plate->abbrev);
+	g_log_info("Description: %s", plate->description);
 
 	// Return success.
 	return NULL;

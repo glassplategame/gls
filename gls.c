@@ -475,7 +475,7 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 	int validate) {
 	int i = 0;
-	struct iovec iovs[4];
+	struct iovec iovs[5];
 	ssize_t len;
 
 	// Read packet.
@@ -489,10 +489,13 @@ struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 	len += iovs[2].iov_len = GLS_PLATE_NAME_LENGTH;
 	iovs[3].iov_base = plate->loc;
 	len += iovs[3].iov_len = GLS_LOCATION_LENGTH;
-	if (gls_readvn(fd, iovs, 4) < len) {
+	iovs[4].iov_base = &plate->flags;
+	len += iovs[4].iov_len = sizeof(uint32_t);
+	if (gls_readvn(fd, iovs, sizeof(iovs) / sizeof(struct iovec)) < len) {
 		return g_flub_toss("Unable to read plate_place packet: '%s'",
 			g_serr(errno));
 	}
+	plate->flags = be32toh(plate->flags);
 
 	// Validate packet.
 	// TODO: Refactor ugly mess.
@@ -509,7 +512,7 @@ struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 	}
 	if (i == GLS_PLATE_ABBREV_LENGTH) {
 		return g_flub_toss("Plate abbreviation too long");
-	} else if (!i) {
+	} else if (!i && (!(plate->flags & GLS_PLATE_FLAG_EMPTY))) {
 		return g_flub_toss("Empty plate abbreviation");
 	}
 	for (i = 0; i < GLS_PLATE_DESCRIPTION_LENGTH; i++) {
@@ -522,9 +525,7 @@ struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 	}
 	if (i == GLS_PLATE_DESCRIPTION_LENGTH) {
 		return g_flub_toss("Plate description too long");
-	}/* else if (!i) {
-		return g_flub_toss("Empty plate description");
-	}*/
+	}
 	for (i = 0; i < GLS_PLATE_NAME_LENGTH; i++) {
 		if (plate->name[i] == '\0') {
 			break;
@@ -532,6 +533,9 @@ struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 			return g_flub_toss("Invalid plate name char at index "
 				"'%i'", i);
 		}
+	}
+	if (!i && (!(plate->flags & GLS_PLATE_FLAG_EMPTY))) {
+		return g_flub_toss("Emply plate name");
 	}
 	if (!isupper(plate->loc[0])) {
 		return g_flub_toss("Invalid plate row specifier");
@@ -548,6 +552,9 @@ struct flub* gls_plate_place_read(struct gls_plate_place* plate, int fd,
 	} else if (plate->loc[2] != '\0') {
 		return g_flub_toss("Expected null byte in loc specifier");
 	}
+	if (plate->flags & (~GLS_PLATE_FLAG_EMPTY)) {
+		return g_flub_toss("Unknown flag is set");
+	}
 	return NULL;
 }
 
@@ -555,6 +562,7 @@ struct flub* gls_plate_place_write(struct gls_plate_place* plate, int fd) {
 	char* buf;
 	char* cur;
 	ssize_t len;
+	uint32_t flags;
 
 	// Get buffer.
 	if (!(cur = buf = pthread_getspecific(gls_key))) {
@@ -577,6 +585,10 @@ struct flub* gls_plate_place_write(struct gls_plate_place* plate, int fd) {
 	strlcpy(cur, plate->loc, GLS_LOCATION_LENGTH);
 	cur += GLS_LOCATION_LENGTH;
 	len += GLS_LOCATION_LENGTH;
+	flags = htobe32(plate->flags);
+	memcpy(cur, &flags, sizeof(flags));
+	cur += sizeof(flags);
+	len += sizeof(flags);
 
 	// Write buffer.
 	if (gls_writen(fd, buf, len) < len) {

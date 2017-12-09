@@ -277,8 +277,8 @@ the AUTHENTICATED state.
   >                                                               >
   >       | Name                                                  >
   >                                                               >
-  >       | Loc |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  +-+-+-+-+-+-+-+
+  >       | Loc | Flags |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+-+-+-+-+
 
   Abbrev:  4 bytes
 
@@ -299,6 +299,15 @@ the AUTHENTICATED state.
 
     A C-string containing the location of the plate on the game board.  The
     string MUST be within the range of "A1"-"H8".
+
+  Flags:  4 bytes
+
+    A 32-bit unsigned integer containing various flags for the plate.  Unused
+    flags MUST NOT be set.  Flags are in network byte order.  Currently used
+    flags:
+
+      0x00000001  GLS_PLATE_FLAG_EMPTY
+        No plate exists at the specified location.
 
 This packet is sent from the server to the client when the client is
 synchronizing game state with the server; the packet denotes a plate that has

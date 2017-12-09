@@ -33,6 +33,8 @@ struct plate {
 	char abbrev[GLS_PLATE_ABBREV_LENGTH];
 	// Description of the plate's concept.
 	char description[GLS_PLATE_DESCRIPTION_LENGTH];
+	// Whether or not the plate is empty.
+	uint32_t empty:1;
 };
 
 /**

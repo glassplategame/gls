@@ -224,6 +224,8 @@ int main(int argc, char* argv[]) {
 			GLS_PLATE_DESCRIPTION_LENGTH);
 		strlcpy(plate->name, packet.data.plate_place.name,
 			GLS_PLATE_NAME_LENGTH);
+		plate->empty = packet.data.plate_place.flags &
+			GLS_PLATE_FLAG_EMPTY;
 	} while (1);
 	if ((flub = gls_sync_end_read(&packet.data.sync_end, client.sockfd,
 		1))) {
