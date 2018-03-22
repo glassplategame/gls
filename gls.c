@@ -3,6 +3,11 @@
 // Key for thread-specific buffer.
 pthread_key_t gls_key;
 
+// Statically-allocated color names.
+const char* gls_color_names[] = {
+	"null", "red", "orange", "yellow", "green", "blue", "purple"
+};
+
 // Static functions.
 ssize_t gls_rdwrn(int fd, void* buffer, size_t count,
 	ssize_t(*rdwr)(int fd, void* buffer, size_t count)) {
@@ -61,6 +66,217 @@ static ssize_t gls_rdwrvn(int fd, struct iovec* iov, int iovcnt,
 }
 
 // Library functions.
+struct flub* gls_die_place_read(struct gls_die_place* die, int fd,
+	int validate) {
+	struct flub* flub;
+	struct iovec iovs[4];
+	ssize_t len;
+
+	// Read packet.
+	memset(die, 0, sizeof(struct gls_die_place));
+	len = 0;
+	iovs[0].iov_base = die->location;
+	len += iovs[0].iov_len = GLS_LOCATION_LENGTH;
+	iovs[1].iov_base = &die->color;
+	len += iovs[1].iov_len = sizeof(uint32_t);
+	iovs[2].iov_base = die->nick;
+	len += iovs[2].iov_len = GLS_NICK_LENGTH;
+	iovs[3].iov_base = &die->die;
+	len += iovs[3].iov_len = sizeof(uint32_t);
+	if (gls_readvn(fd, iovs, sizeof(iovs) / sizeof(struct iovec)) < len) {
+		g_flub_toss("Unable to read die place packet: %s",
+			g_serr(errno));
+	}
+	die->color = be32toh(die->color);
+	die->die = be32toh(die->die);
+
+	// Validate packet.
+	if (!validate) {
+		return NULL;
+	} else if ((flub = gls_location_validate(die->location))) {
+		return flub_append(flub, "reading die place");
+	} else if (die->color > GLS_COLOR_MAX || die->color == GLS_COLOR_NULL) {
+		return g_flub_toss("Invalid die color '%u'", die->color);
+	} else if ((flub = gls_nick_validate(die->nick, 0))) {
+		return flub_append(flub, "reading die place");
+	} else if (die->die > GLS_DIE_MAX) {
+		return g_flub_toss("Invalid die number '%u'", die->die);
+	}
+	return NULL;
+}
+
+struct flub* gls_die_place_write(struct gls_die_place* die, int fd) {
+	char* buf;
+	char* cur;
+	ssize_t len;
+	uint32_t tmp32;
+
+	// Prepare buffer.
+	if (!(cur = buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get gls buffer");
+	}
+	len = 0;
+	gls_header_marshal(cur, GLS_EVENT_DIE_PLACE);
+	cur += 4;
+	len += 4;
+	strlcpy(cur, die->location, GLS_LOCATION_LENGTH);
+	cur += GLS_LOCATION_LENGTH;
+	len += GLS_LOCATION_LENGTH;
+	tmp32 = htobe32(die->color);
+	memcpy(cur, &tmp32, sizeof(uint32_t));
+	cur += sizeof(uint32_t);
+	len += sizeof(uint32_t);
+	strlcpy(cur, die->nick, GLS_NICK_LENGTH);
+	cur += GLS_NICK_LENGTH;
+	len += GLS_NICK_LENGTH;
+	tmp32 = htobe32(die->die);
+	memcpy(cur, &tmp32, sizeof(uint32_t));
+	cur += sizeof(uint32_t);
+	len += sizeof(uint32_t);
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write die place: %s",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
+struct flub* gls_die_place_reject_read(struct gls_die_place_reject* die, int fd,
+	int validate) {
+	struct flub* flub;
+	int i;
+	struct iovec iovs[3];
+	ssize_t len;
+
+	// Read in packet.
+	len = 0;
+	iovs[0].iov_base = die->location;
+	len += iovs[0].iov_len = GLS_LOCATION_LENGTH;
+	iovs[1].iov_base = &die->color;
+	len += iovs[1].iov_len = sizeof(uint32_t);
+	iovs[2].iov_base = die->reason;
+	len += iovs[2].iov_len = GLS_DIE_PLACE_REJECT_REASON_LENGTH;
+	if (gls_readvn(fd, iovs, sizeof(iovs) / sizeof(struct iovec)) < len) {
+		return g_flub_toss("Unable to read die place reject: %s",
+			g_serr(errno));
+	}
+	die->color = be32toh(die->color);
+
+	// Validate packet.
+	if (!validate) {
+		return NULL;
+	} else if ((flub = gls_location_validate(die->location))) {
+		return flub_append(flub, "reading die place reject");
+	} else if (die->color == GLS_COLOR_NULL || die->color > GLS_COLOR_MAX) {
+		return g_flub_toss("Invalid die color '%u'", die->color);
+	}
+	for (i = 0; i < GLS_DIE_PLACE_REJECT_REASON_LENGTH; i++) {
+		if (die->reason[i] == '\0') {
+			break;
+		} else if (!isprint(die->reason[i])) {
+			return g_flub_toss("Invalid reason char at '%i'", i);
+		}
+	}
+	if (i >= GLS_DIE_PLACE_REJECT_REASON_LENGTH) {
+		return g_flub_toss("Reason too long");
+	}
+	return NULL;
+}
+
+struct flub* gls_die_place_reject_write(struct gls_die_place_reject* die,
+	int fd) {
+	char* buf;
+	char* cur;
+	ssize_t len;
+	uint32_t tmp;
+
+	// Prepare buffer.
+	if (!(cur = buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get gls buffer");
+	}
+	len = 0;
+	gls_header_marshal(cur, GLS_EVENT_DIE_PLACE_REJECT);
+	cur += 4;
+	len += 4;
+	strlcpy(cur, die->location, GLS_LOCATION_LENGTH);
+	cur += GLS_LOCATION_LENGTH;
+	len += GLS_LOCATION_LENGTH;
+	tmp = htobe32(die->color);
+	memcpy(cur, &tmp, sizeof(uint32_t));
+	cur += sizeof(uint32_t);
+	len += sizeof(uint32_t);
+	strlcpy(cur, die->reason, GLS_DIE_PLACE_REJECT_REASON_LENGTH);
+	cur += GLS_DIE_PLACE_REJECT_REASON_LENGTH;
+	len += GLS_DIE_PLACE_REJECT_REASON_LENGTH;
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write die place reject: %s",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
+struct flub* gls_die_place_try_read(struct gls_die_place_try* die, int fd,
+	int validate) {
+	struct flub* flub;
+	struct iovec iovs[2];
+	ssize_t len;
+
+	// Read packet.
+	len = 0;
+	iovs[0].iov_base = die->location;
+	len += iovs[0].iov_len = GLS_LOCATION_LENGTH;
+	iovs[1].iov_base = &die->color;
+	len += iovs[1].iov_len = sizeof(uint32_t);
+	if (gls_readvn(fd, iovs, sizeof(iovs) / sizeof(struct iovec)) < len) {
+		return g_flub_toss("Unable to read die place try packet: %s",
+			g_serr(errno));
+	}
+	die->color = be32toh(die->color);
+
+	// Validate packet.
+	if (!validate) {
+		return NULL;
+	} else if ((flub = gls_location_validate(die->location))) {
+		return flub_append(flub, "reading die place try");
+	} else if (die->color == GLS_COLOR_NULL || die->color > GLS_COLOR_MAX) {
+		return g_flub_toss("Invalid color '%u'", die->color);
+	}
+	return NULL;
+}
+
+struct flub* gls_die_place_try_write(struct gls_die_place_try* die, int fd) {
+	char* buf;
+	char* cur;
+	ssize_t len;
+	uint32_t tmp;
+
+	// Prepare buffer.
+	if (!(cur = buf = pthread_getspecific(gls_key))) {
+		return g_flub_toss("Unable to get gls buffer");
+	}
+	len = 0;
+	gls_header_marshal(cur, GLS_EVENT_DIE_PLACE_TRY);
+	cur += 4;
+	len += 4;
+	strlcpy(cur, die->location, GLS_LOCATION_LENGTH);
+	cur += GLS_LOCATION_LENGTH;
+	len += GLS_LOCATION_LENGTH;
+	tmp = htobe32(die->color);
+	memcpy(cur, &tmp, sizeof(uint32_t));
+	cur += sizeof(uint32_t);
+	len += sizeof(uint32_t);
+
+	// Write buffer.
+	if (gls_writen(fd, buf, len) < len) {
+		return g_flub_toss("Unable to write die place try: %s",
+			g_serr(errno));
+	}
+	return NULL;
+}
+
 void gls_header_marshal(char* buffer, uint32_t event) {
 	uint32_t tmp;
 
@@ -202,6 +418,25 @@ struct flub* gls_nick_set_write(struct gls_nick_set* set, int fd) {
 	if (gls_writen(fd, buf, len) < len) {
 		return g_flub_toss("Unable to write nick set: '%s'",
 			g_serr(errno));
+	}
+	return NULL;
+}
+
+struct flub* gls_location_validate(char* location) {
+	if (!isupper(location[0])) {
+		return g_flub_toss("Invalid plate row specifier");
+	} else if (location[0] - 'A' < 0) {
+		return g_flub_toss("Plate row specifier too small");
+	} else if (location[0] - 'A' >= GLS_BOARD_ROW_COUNT) {
+		return g_flub_toss("Plate row specifier too large");
+	} else if (!isdigit(location[1])) {
+		return g_flub_toss("Invalid plate column specifier");
+	} else if (location[1] - '1' < 0) {
+		return g_flub_toss("Plate column specifier too small");
+	} else if (location[1] - '1' >= GLS_BOARD_COLUMN_COUNT) {
+		return g_flub_toss("Plate column specified too large");
+	} else if (location[2] != '\0') {
+		return g_flub_toss("Expected null byte in loc specifier");
 	}
 	return NULL;
 }
@@ -374,6 +609,18 @@ struct flub* gls_packet_read(struct gls_packet* packet, int fd, int validate) {
 
 	// Read in actual packet.
 	switch(packet->header.event) {
+	case GLS_EVENT_DIE_PLACE:
+		flub = gls_die_place_read(&packet->data.die_place, fd,
+			validate);
+		break;
+	case GLS_EVENT_DIE_PLACE_REJECT:
+		flub = gls_die_place_reject_read(&packet->data.die_place_reject,
+			fd, validate);
+		break;
+	case GLS_EVENT_DIE_PLACE_TRY:
+		flub = gls_die_place_try_read(&packet->data.die_place_try, fd,
+			validate);
+		break;
 	case GLS_EVENT_PROTOVER:
 		flub = gls_protover_read(&packet->data.protover, fd, validate);
 		break;
@@ -428,6 +675,16 @@ struct flub* gls_packet_write(struct gls_packet* packet, int fd) {
 
 	// Write the packet.
 	switch(packet->header.event) {
+	case GLS_EVENT_DIE_PLACE:
+		flub = gls_die_place_write(&packet->data.die_place, fd);
+		break;
+	case GLS_EVENT_DIE_PLACE_REJECT:
+		flub = gls_die_place_reject_write(
+			&packet->data.die_place_reject, fd);
+		break;
+	case GLS_EVENT_DIE_PLACE_TRY:
+		flub = gls_die_place_try_write(&packet->data.die_place_try, fd);
+		break;
 	case GLS_EVENT_PROTOVER:
 		flub = gls_protover_write(&packet->data.protover, fd);
 		break;

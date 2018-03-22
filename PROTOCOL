@@ -4,12 +4,38 @@ WARNING: This protocol is currently *unstable* and prone to radical change.
 
 DOUBLE WARNING: This protocol has not been peer-reviewed and is probably sucky.
 
+0. Definitions
+
+This section contains metadata of various constants defined for the GLS
+protocol.
+
+0.1 Colors
+
+Colors are defined by a 32-bit unsigned integer.  The value '0' is special and
+means "no color".  The other colors are specified as follows:
+
+  1: red
+  2: orange
+  3: yellow
+  4: green
+  5: blue
+  6: purple
+
+The names GLS_COLOR_MIN and GLS_COLOR_MAX refer to "red" and "purple",
+respectively.  The name GLS_COLOR_NULL refers to the "no color" value (0).
+Colors greater than GLS_COLOR_MAX are considered invalid.
+
+0.2 Die Numbers
+
+Die numbers are defined by a 32-bit unsigned integer.  They must be less than
+the value 25, which has name GLS_DIE_MAX.
+
 1. Packets
 
 All GLS packets are prefixed by an unsigned 32-bit integer which denotes the
 "event type" for the data proceeding it.  The amount of data suffixing the
 header is a fixed amount that depends on the event type.  The event type is
-in network byte order (big endian).
+in network byte order (big endian), as are all integers.
 
 1.1 Protocol Version Exchange ("Protover")
 
@@ -313,6 +339,86 @@ This packet is sent from the server to the client when the client is
 synchronizing game state with the server; the packet denotes a plate that has
 been placed on the board at the specified location.
 
+1.13 Die Place Try
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  | Loc | Color |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+
+
+  Loc:  3 bytes
+
+    A C-string containing the location of the plate on the game board.  The
+    string MUST be within the range of "A1"-"H8".
+
+  Color:  4 bytes
+
+    A 32-bit unsigned integer representing the color to be used for the die.
+    This number MUST be either GLS_COLOR_NULL or less than GLS_COLOR_MAX.
+
+This packet is sent from the client to the server when the client wishes to
+place a die (without a connection) on the specified plate.
+
+1.14 Die Place Reject
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  | Loc | Color |                                                 >
+  >                           Reason                              >
+  >             |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+
+
+  Loc:  3 bytes
+
+    A C-string containing the location of the plate on the game board.  The
+    string MUST be within the range of "A1"-"H8".
+
+  Color:  4 bytes
+
+    A 32-bit unsigned integer representing the color to be used for the die.
+    This number MUST be either GLS_COLOR_NULL or less than GLS_COLOR_MAX.
+
+  Reason:  64 bytes
+
+    A C-string specifying the reason why the die could not be placed on the
+    board.
+
+This packet is sent from the server to the client when a die placement requested
+by the client was rejected by the server.
+
+1.15 Die Place
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  | Loc | Color |              Nick                               >
+  >             |  Die  |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  +-+-+-+-+-+-+-+-+-+-+-+
+
+  Loc:  3 bytes
+
+    A C-string containing the location of the plate on the game board.  The
+    string MUST be within the range of "A1"-"H8".
+
+  Color:  4 bytes
+
+    A 32-bit unsigned integer representing the color to be used for the die.
+    This number MUST be either GLS_COLOR_NULL or less than GLS_COLOR_MAX.
+
+  Nick:  32 bytes
+
+    A C-string containing the name of the user which placed the die.
+
+  Die:  4 bytes
+
+    A 32-bit unsigned integer representing which die number was placed on the
+    board.  This number MUST be less than GLS_DIE_MAX.
+
+This packet is sent from the server to the client when a die has been placed on
+the board.
+
 2. Client States
 
 Clients have various states as they connect to and exchange data across the
@@ -416,6 +522,18 @@ send the message as a Say2 packet to all clients in the AUTHENTICATED state,
 including the one that sent the original message (the message is echo'd back
 to the client).
 
+3.5.3 Die Place Try
+
+Client attempts to place a die on the specified plate and optionally with a
+specified color.  The server MUST reply to the client with either a Die Place
+Reject packet if the server rejects the placement or send a Die Place packet
+to all clients in the AUTHENTICATED state if the server accepts the placement.
+
+The server MUST reject the placement if there are no dies or colors left, or if
+the specified plate is empty.  If the specified color is GLS_COLOR_NULL then the
+server MUST select a valid color (if possible) before sending a Die Place
+packet.
+
 4. Client
 
 4.1 DISCONNECTED
@@ -453,7 +571,10 @@ to the DISCONNECTED state.
 4.4.1 Plate Place
 The specified plate is placed at the specified location on the game board.
 
-4.4.2 Sync End
+4.4.2 Die Place
+The specified die is placed at the specified location on the game board.
+
+4.4.3 Sync End
 The game state has been synchronized and the client MUST move to the
 AUTHENTICATED state and MUST display the packet's MotD.
 
@@ -495,3 +616,13 @@ MUST move itself back to the DISCONNECTED state.
 The server sends a Say2 packet when another player has sent a message.  The
 client MUST display the sender's nick and message to the user and MAY display
 the time of the message.
+
+4.5.8 Die Place Reject
+The server sends a Die Place Reject packet when the server has rejected a die
+placement requested by the client.  The client MUST display both the location
+and reason to the client.
+
+4.5.9 Die Place
+The server sends a Die Place packet when a die is placed on the game board. The
+client MUST inform the user of placement and MUST update its internal
+representation of the game board appropriately.

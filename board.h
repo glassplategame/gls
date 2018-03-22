@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "die.h"
 #include "global.h"
 #include "gls.h"
 #include "plate.h"
@@ -33,7 +34,24 @@
 struct board {
 	// Plates are arrange in a static 8x8 square for now.
 	struct plate plates[GLS_BOARD_ROW_COUNT][GLS_BOARD_COLUMN_COUNT];
+	// Game dice.
+	struct die dice[GLS_DIE_MAX];
 };
+
+/**
+ * Attempts to place a die at the specified location on the board with the
+ * specified color.  Sets 'color' and 'die' as per the corresponding, suffixed
+ * '_check' function. */
+struct flub* board_die_place(struct board* board, char* nick, char* location,
+	uint32_t* color, uint32_t* die);
+
+/**
+ * Check if a die may be placed at the specified location and with the given
+ * color.  Outputs the color that will be used (if specified as the special
+ * "null" color) and die that will be used.
+ */
+struct flub* board_die_place_check(struct board* board, char* location,
+	uint32_t* color, uint32_t* die);
 
 /**
  * Initialize the game board.

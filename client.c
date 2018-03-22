@@ -200,32 +200,52 @@ int main(int argc, char* argv[]) {
 		if (packet.header.event == GLS_EVENT_SYNC_END) {
 			// End of sync.
 			break;
-		} else if (packet.header.event != GLS_EVENT_PLATE_PLACE) {
+		} else if (packet.header.event == GLS_EVENT_PLATE_PLACE) {
+			// Read in plate.
+			if ((flub = gls_plate_place_read(
+				&packet.data.plate_place, client.sockfd, 1))) {
+				g_log_error("Unable to read plate: '%s'",
+					flub->message);
+				exit(EXIT_FAILURE);
+			}
+
+			// Copy plate to game board.
+			i = ((packet.data.plate_place.loc[0] - 'A') * 8) +
+				((packet.data.plate_place.loc[1] - '1'));
+			plate = ((struct plate*)client.board.plates) + i;
+			strlcpy(plate->abbrev, packet.data.plate_place.abbrev,
+				GLS_PLATE_ABBREV_LENGTH);
+			strlcpy(plate->description,
+				packet.data.plate_place.description,
+				GLS_PLATE_DESCRIPTION_LENGTH);
+			strlcpy(plate->name, packet.data.plate_place.name,
+				GLS_PLATE_NAME_LENGTH);
+			plate->empty = packet.data.plate_place.flags &
+				GLS_PLATE_FLAG_EMPTY;
+		} else if (packet.header.event == GLS_EVENT_DIE_PLACE) {
+			// Read in die placement.
+			if ((flub = gls_die_place_read(&packet.data.die_place,
+				client.sockfd, 1))) {
+				g_log_error("Unable to read die place: '%s'",
+					flub->message);
+				exit(EXIT_FAILURE);
+			}
+
+			// Place die.
+			if ((flub = board_die_place(&client.board,
+				packet.data.die_place.nick,
+				packet.data.die_place.location,
+				&packet.data.die_place.color,
+				&packet.data.die_place.die))) {
+				g_log_error("Unable to place die: '%s'",
+					flub->message);
+				exit(EXIT_FAILURE);
+			}
+		} else {
 			g_log_error("Unexpected event: '%u'",
 				packet.header.event);
 			exit(EXIT_FAILURE);
 		}
-
-		// Read in plate.
-		if ((flub = gls_plate_place_read(&packet.data.plate_place,
-			client.sockfd, 1))) {
-			g_log_error("Unable to read plate: '%s'",
-				flub->message);
-			exit(EXIT_FAILURE);
-		}
-
-		// Copy plate to game board.
-		i = ((packet.data.plate_place.loc[0] - 'A') * 8) +
-			((packet.data.plate_place.loc[1] - '1'));
-		plate = ((struct plate*)client.board.plates) + i;
-		strlcpy(plate->abbrev, packet.data.plate_place.abbrev,
-			GLS_PLATE_ABBREV_LENGTH);
-		strlcpy(plate->description, packet.data.plate_place.description,
-			GLS_PLATE_DESCRIPTION_LENGTH);
-		strlcpy(plate->name, packet.data.plate_place.name,
-			GLS_PLATE_NAME_LENGTH);
-		plate->empty = packet.data.plate_place.flags &
-			GLS_PLATE_FLAG_EMPTY;
 	} while (1);
 	if ((flub = gls_sync_end_read(&packet.data.sync_end, client.sockfd,
 		1))) {
@@ -239,11 +259,12 @@ int main(int argc, char* argv[]) {
 
 	// Play the game (main loop).
 	done = 0;
-	const int REGMATCH_COUNT = 3;
+	const int REGMATCH_COUNT = 5;
 	regex_t regex_board;
 	regex_t regex_command;
 	regex_t regex_help;
 	regex_t regex_nick;
+	regex_t regex_place;
 	regex_t regex_plate;
 	regex_t regex_quit;
 	regmatch_t regmatch[REGMATCH_COUNT];
@@ -266,6 +287,11 @@ int main(int argc, char* argv[]) {
 		REG_EXTENDED))) {
 		regerror(ret, &regex_nick, errbuf, sizeof(errbuf));
 		g_log_error("Unable to compile nick regex: '%s'", errbuf);
+		exit(EXIT_FAILURE);
+	} else if ((ret = regcomp(&regex_place,
+		"^place(\\s+(\\w+)(\\s+(\\w+))?)?\\s*$", REG_EXTENDED))) {
+		regerror(ret, &regex_place, errbuf, sizeof(errbuf));
+		g_log_error("Unable to compile place regex: '%s'", errbuf);
 		exit(EXIT_FAILURE);
 	} else if ((ret = regcomp(&regex_plate, "^plate(\\s+(\\w+))?\\s*$",
 		REG_EXTENDED))) {
@@ -312,6 +338,32 @@ int main(int argc, char* argv[]) {
 				break;
 			}
 			switch (packet.header.event) {
+			case (GLS_EVENT_DIE_PLACE):
+				if ((flub = board_die_place(&client.board,
+					packet.data.die_place.nick,
+					packet.data.die_place.location,
+					&packet.data.die_place.color,
+					&packet.data.die_place.die))) {
+					g_log_error("Unable to place die '%s':"
+						"%s",
+						packet.data.die_place.location,
+						flub->message);
+					done = 1;
+					break;
+				}
+				g_log_info("'%s' placed die '%u' (%s) at '%s'",
+					packet.data.die_place.nick,
+					packet.data.die_place.die,
+					gls_color_names[
+						packet.data.die_place.color],
+					packet.data.die_place.location);
+				break;
+			case (GLS_EVENT_DIE_PLACE_REJECT):
+				g_log_info("Server rejected placement of die "
+					"at '%s': %s",
+					packet.data.die_place_reject.location,
+					packet.data.die_place_reject.reason);
+				break;
 			case (GLS_EVENT_NICK_SET):
 				if (!strlen(packet.data.nick_set.nick)) {
 					g_log_info("Server rejected nickname: "
@@ -444,6 +496,8 @@ int main(int argc, char* argv[]) {
 				"/help: Show this help menu.\n"
 				"/nick <nick>: Request specified nickname.\n"
 				"/plate <RowColumn>: Print specifed plate.\n"
+				"/place <Location> [color]: Place die at "
+					"specified location.\n"
 				"/quit: Exit the program.\n"
 				"/?: Same as 'help'.\n";
 			if (write(STDOUT_FILENO, message, strlen(message)) <
@@ -483,6 +537,72 @@ int main(int argc, char* argv[]) {
 				break;
 			}
 			g_log_info("Requested nick '%s'", req.nick);
+		} else if (!regexec(&regex_place, cmd, REGMATCH_COUNT, regmatch,
+			0)) {
+			uint32_t color;
+			char color_str[16]; // Hacky.
+			uint32_t die;
+			struct gls_die_place_try packet;
+			char location[GLS_LOCATION_LENGTH];
+
+			// Parse location.
+			if (regmatch[2].rm_so == -1) {
+				g_log_warn("Missing location");
+				continue;
+			}
+			strlcpy(location, &cmd[regmatch[2].rm_so],
+				GLS_LOCATION_LENGTH);
+			if ((flub = gls_location_validate(location))) {
+				g_log_warn("Unable to parse location: %s",
+					flub->message);
+				continue;
+			}
+
+			// Parse color.
+			if (regmatch[4].rm_so != -1) {
+				regoff_t len = regmatch[4].rm_eo -
+					regmatch[4].rm_so;
+				strlcpy(color_str, &cmd[regmatch[4].rm_so],
+					sizeof(color_str) < len + 1?
+					sizeof(color_str) : len + 1);
+				if (!strcasecmp(color_str, "red")) {
+					color = GLS_COLOR_RED;
+				} else if (!strcasecmp(color_str, "orange")) {
+					color = GLS_COLOR_ORANGE;
+				} else if (!strcasecmp(color_str, "yellow")) {
+					color = GLS_COLOR_YELLOW;
+				} else if (!strcasecmp(color_str, "green")) {
+					color = GLS_COLOR_GREEN;
+				} else if (!strcasecmp(color_str, "blue")) {
+					color = GLS_COLOR_BLUE;
+				} else if (!strcasecmp(color_str, "purple")) {
+					color = GLS_COLOR_PURPLE;
+				} else {
+					g_log_warn("Unknown color '%s'",
+						color_str);
+					continue;
+				}
+			} else {
+				color = GLS_COLOR_NULL;
+			}
+
+			// Check board.
+			if ((flub = board_die_place_check(&client.board,
+				location, &color, &die))) {
+				g_log_warn("Unable to place die: %s",
+					flub->message);
+				continue;
+			}
+
+			// Send packet.
+			memset(&packet, 0, sizeof(packet));
+			strlcpy(packet.location, location, GLS_LOCATION_LENGTH);
+			packet.color = color;
+			if ((flub = gls_die_place_try_write(&packet,
+				client.sockfd))) {
+				g_log_warn("Unable to write place die try "
+					"packet: %s", flub->message);
+			}
 		} else if (!regexec(&regex_plate, cmd, REGMATCH_COUNT, regmatch,
 			0)) {
 			// Print specified plate.

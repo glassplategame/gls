@@ -165,6 +165,26 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 				}
 			}
 		}
+		// Send die placements.
+		for (i = 0; i < GLS_DIE_MAX; i++) {
+			if (!strlen(server->board.dice[i].location)) {
+				// Die not placed.
+				continue;
+			}
+			struct gls_die_place place;
+			struct die* die = &server->board.dice[i];
+			memset(&place, 0, sizeof(place));
+			strlcpy(place.location, die->location,
+				GLS_LOCATION_LENGTH);
+			strlcpy(place.nick, die->nick, GLS_NICK_LENGTH);
+			place.color = die->color;
+			place.die = i;
+			if ((flub = gls_die_place_write(&place,
+				player->sockfd))) {
+				return flub_append(flub, "placing die");
+			}
+		}
+		// Sync end.
 		memset(&sync, 0, sizeof(struct gls_sync_end));
 		strlcpy(sync.motd, "Welcome to the Glass Plate Game test "
 			"server!", GLS_MOTD_LENGTH);
@@ -173,7 +193,9 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 		}
 		player->synchronized = 1;
 	} else { // Client generated packet.
+		uint32_t die;
 		int i;
+		struct gls_die_place* place;
 		struct gls_say1* say1;
 		struct gls_say2* say2;
 
@@ -216,6 +238,69 @@ struct flub* server_player_data(struct server* server, struct player* player) {
 					player_kill(&server->players[i]);
 				}
 			}
+			break;
+		case GLS_EVENT_DIE_PLACE_TRY:
+			// Place die on board.
+			if ((flub = board_die_place(&server->board,
+				player->nick,
+				packet_in.data.die_place_try.location,
+				&packet_in.data.die_place_try.color, &die))) {
+				// Die not valid; send reject packet.
+				struct gls_die_place_reject* reject;
+				reject = &packet_out.data.die_place_reject;
+				memset(&packet_out, 0, sizeof(packet_out));
+				packet_out.header.event =
+					GLS_EVENT_DIE_PLACE_REJECT;
+				strlcpy(reject->location,
+					packet_in.data.die_place_try.location,
+					GLS_LOCATION_LENGTH);
+				reject->color =
+					packet_in.data.die_place_try.color;
+				strlcpy(reject->reason, flub->message,
+					GLS_DIE_PLACE_REJECT_REASON_LENGTH);
+				if ((flub = gls_die_place_reject_write(reject,
+					player->sockfd))) {
+					// Unable to send reject packet.
+					g_log_warn("Error sending die place "
+						"reject to player '%s': %s",
+						player_name(player),
+						flub->message);
+					player_kill(player);
+					break;
+				}
+				break;
+			}
+
+			// Notify players of placed die.
+			memset(&packet_out, 0, sizeof(packet_out));
+			packet_out.header.event = GLS_EVENT_DIE_PLACE;
+			place = &packet_out.data.die_place;
+			strlcpy(place->location,
+				packet_in.data.die_place_try.location,
+				GLS_LOCATION_LENGTH);
+			place->color = packet_in.data.die_place_try.color;
+			strlcpy(place->nick, player->nick, GLS_NICK_LENGTH);
+			place->die = die;
+			for (i = 0; i < SERVER_PLAYER_MAX; i++) {
+				// Send place packet to each player.
+				if (!server->players[i].authenticated) {
+					continue;
+				}
+				if ((flub = gls_die_place_write(place,
+					server->players[i].sockfd))) {
+					g_log_warn("Unable to place die for "
+						"player '%s': '%s'",
+						player_name(
+							&server->players[i]),
+						flub->message);
+					player_kill(&server->players[i]);
+				}
+			}
+			g_log_info("Player '%s' placed die '%u' (%s) at '%s'",
+				player->nick, die,
+				gls_color_names[
+					packet_out.data.die_place.color],
+				packet_out.data.die_place.location);
 			break;
 		default:
 			return g_flub_toss("Unsupported event type '%i' from "

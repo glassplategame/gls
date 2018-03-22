@@ -41,6 +41,24 @@
 // Board dimensions.
 #define GLS_BOARD_ROW_COUNT 8
 #define GLS_BOARD_COLUMN_COUNT 8
+// Board locations.
+#define GLS_LOCATION_LENGTH 3
+
+// Transparency colors.
+#define GLS_COLOR_NULL		0  // a.k.a. "no color"
+#define GLS_COLOR_RED 		1
+#define GLS_COLOR_ORANGE 	2
+#define GLS_COLOR_YELLOW	3
+#define GLS_COLOR_GREEN		4
+#define GLS_COLOR_BLUE		5
+#define GLS_COLOR_PURPLE	6
+#define GLS_COLOR_MAX		GLS_COLOR_PURPLE
+#define GLS_COLOR_MIN		GLS_COLOR_RED
+extern const char* gls_color_names[];
+
+// Die definitions.
+#define GLS_DIE_MAX		25
+
 
 /**
  * Structure that represents an event in the Glass Plate Game.
@@ -78,12 +96,48 @@ struct gls_nick_set {
 };
 
 /**
+ * Die has been placed on the board.
+ */
+struct gls_die_place {
+	// Location die was placed at.
+	char location[GLS_LOCATION_LENGTH];
+	// Color for the die's transparency.
+	uint32_t color;
+	// Nick of player who placed the die.
+	char nick[GLS_NICK_LENGTH];
+	// The number of the die that was placed.
+	uint32_t die;
+};
+
+/**
+ * Server rejects die placement.
+ */
+#define GLS_DIE_PLACE_REJECT_REASON_LENGTH 64
+struct gls_die_place_reject {
+	// Location place attempted.
+	char location[GLS_LOCATION_LENGTH];
+	// Attempted color placement.
+	uint32_t color;
+	// Reason for rejection.
+	char reason[GLS_DIE_PLACE_REJECT_REASON_LENGTH];
+};
+
+/**
+ * Client tries to place a die.
+ */
+struct gls_die_place_try {
+	// Location to place die.
+	char location[GLS_LOCATION_LENGTH];
+	// Color to place.
+	uint32_t color;
+};
+
+/**
  * Plate placement.
  */
 #define GLS_PLATE_ABBREV_LENGTH 4
 #define GLS_PLATE_DESCRIPTION_LENGTH 256
 #define GLS_PLATE_NAME_LENGTH 64
-#define GLS_LOCATION_LENGTH 3
 #define GLS_PLATE_FLAG_EMPTY 					0x00000001
 struct gls_plate_place {
 	char abbrev[GLS_PLATE_ABBREV_LENGTH];
@@ -172,6 +226,9 @@ struct gls_sync_end {
 #define GLS_EVENT_SAY2			0x0000000A
 #define GLS_EVENT_SYNC_END		0x0000000B
 #define GLS_EVENT_PLATE_PLACE		0x0000000C
+#define GLS_EVENT_DIE_PLACE_TRY		0x0000000D
+#define GLS_EVENT_DIE_PLACE_REJECT	0x0000000E
+#define GLS_EVENT_DIE_PLACE		0x0000000F
 
 // Union of all packets.
 struct gls_packet {
@@ -189,8 +246,47 @@ struct gls_packet {
 		struct gls_say2 say2;
 		struct gls_sync_end sync_end;
 		struct gls_plate_place plate_place;
+		struct gls_die_place_try die_place_try;
+		struct gls_die_place_reject die_place_reject;
+		struct gls_die_place die_place;
 	} data;
 };
+
+/**
+ * Reads the specified Die Place packet from the specified file descriptor.
+ */
+struct flub* gls_die_place_read(struct gls_die_place* die, int fd,
+	int validate);
+
+/**
+ * Writes the specified Die Place packet to the specified file descriptor.
+ */
+struct flub* gls_die_place_write(struct gls_die_place* die, int fd);
+
+/**
+ * Reads the specified Die Place Reject packet from the specified file
+ * descriptor.
+ */
+struct flub* gls_die_place_reject_read(struct gls_die_place_reject* die, int fd,
+	int validate);
+
+/**
+ * Writes the specified Die Place Reject packet to the specified file
+ * descriptor.
+ */
+struct flub* gls_die_place_reject_write(struct gls_die_place_reject* die,
+	int fd);
+
+/**
+ * Reads the specified Die Place Try packet from the specified file descriptor.
+ */
+struct flub* gls_die_place_try_read(struct gls_die_place_try* die, int fd,
+	int validate);
+
+/**
+ * Writes the specified Die Place Try packet to the specified file descriptor.
+ */
+struct flub* gls_die_place_try_write(struct gls_die_place_try* die, int fd);
 
 /**
  * Marshalls the speccified gls header data into the specified buffer.
@@ -211,6 +307,11 @@ struct flub* gls_init();
  * Destructor function for the pthread-specific gls buffer.
  */
 void gls_init_destructor(void* buffer);
+
+/**
+ * Return a flub if the specified location isn't valid.
+ */
+struct flub* gls_location_validate(char* location);
 
 /**
  * Validate a MotD.

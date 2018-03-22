@@ -20,6 +20,76 @@
 
 static size_t board_print_border(struct board* board, char* buffer);
 
+struct flub* board_die_place(struct board* board, char* nick, char* location,
+	uint32_t* color, uint32_t* die) {
+	struct flub* flub;
+
+	// Check if the die can be placed.
+	if ((flub = board_die_place_check(board, location, color, die))) {
+		// Die cannot be placed.
+		return flub;
+	}
+
+	// Place die.
+	strlcpy(board->dice[(*die)].nick, nick, GLS_NICK_LENGTH);
+	strlcpy(board->dice[(*die)].location, location, GLS_LOCATION_LENGTH);
+	board->dice[(*die)].color = (*color);
+	return NULL;
+}
+
+struct flub* board_die_place_check(struct board* board, char* location,
+	uint32_t* color, uint32_t* die) {
+	int i;
+
+	// Check for color.
+	if ((*color) == GLS_COLOR_NULL) {
+		int newc;
+
+		// Check for available color.
+		for (newc = GLS_COLOR_MIN; newc <= GLS_COLOR_MAX; newc++) {
+			for (i = 0; i < GLS_DIE_MAX; i++) {
+				if (board->dice[i].color == newc) {
+					break; // Color in use.
+				}
+			}
+			if (i == GLS_DIE_MAX) {
+				break; // Color found.
+			}
+		}
+		if (newc > GLS_COLOR_MAX) {
+			return g_flub_toss("No colors left");
+		}
+		(*color) = newc;
+	} else {
+		// Check if color in use.
+		for (i = 0; i < GLS_DIE_MAX; i++) {
+			if (board->dice[i].color == (*color)) {
+				break; // Color in use.
+			}
+		}
+		if (i != GLS_DIE_MAX) {
+			return g_flub_toss("Color in use");
+		}
+	}
+
+	// Check for empty plate.
+	if (board->plates[location[0] - 'A'][location[1] - '1'].empty) {
+		return g_flub_toss("No plate at location '%s'", location);
+	}
+
+	// Check for a die.
+	for (i = 0; i < GLS_DIE_MAX; i++) {
+		if (!strlen(board->dice[i].location)) {
+			break;
+		}
+	}
+	if (i == GLS_DIE_MAX) {
+		return g_flub_toss("No dice left");
+	}
+	(*die) = i;
+	return NULL;
+}
+
 void board_init(struct board* board) {
 	// Use a default set of cards. Hacky.
 	memset(board, 0, sizeof(struct board));
